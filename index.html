@@ -1891,8 +1891,8 @@
       if (analysis.ma30Deviation?.overLimit) return { notify: false, reason: "偏離 MA30 過遠，不推播" };
       if (analysis.stopLossTooSmall) return { notify: false, reason: "結構太小，不推播" };
       if (analysis.chaseRisk) return { notify: false, reason: "追價風險，不推播" };
-      if (!analysis.direction || !["S", "A"].includes(analysis.signalLevel)) {
-        return { notify: false, reason: analysis.signalLevel === "B" ? "B級只在畫面顯示，不推播" : analysis.signalLevel === "C" ? "C級不推播" : "D級或方向不明，不通知" };
+      if (!analysis.direction || !["S", "A", "B"].includes(analysis.signalLevel)) {
+        return { notify: false, reason: analysis.signalLevel === "C" ? "C級不推播" : "D級或方向不明，不通知" };
       }
       const mode = signalModeKey(analysis.finalSignal);
       const key = `${symbol}-${analysis.direction}-${mode}`;
@@ -2058,7 +2058,8 @@
     function telegramNotificationText(symbol, analysis, basic, notifyDecision = null) {
       const { sideLabel, metrics, entryZone, reason } = telegramTradeSummary(analysis, basic);
       const bell = String.fromCodePoint(0x1F514);
-      const levelIcon = analysis.signalLevel === "S" ? "⭐" : analysis.signalLevel === "A" ? "🟢" : bell;
+      const levelIcon = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🔥🔥" : "🟡";
+      const bLevelNote = analysis.signalLevel === "B" ? "\n小倉觀察，不建議追價" : "";
       const compactSymbol = String(symbol || "").replace("-", "");
       const reminder = analysis.breakoutReady
         ? "突破型訊號，小倉，不要重倉追。"
@@ -2068,7 +2069,7 @@
 
 ${bell} ${symbol}
 
-${analysis.finalSignal}
+${analysis.finalSignal}${bLevelNote}
 
 方向：${sideLabel}
 狀態：${analysis.signalStage || "等待"}
@@ -3257,9 +3258,9 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
       const signalStageValue = signalStage({ direction, signalLevel, canEnter, finalSignal });
       const chaseRisk = direction === "long" ? !basic.notNearHigh : direction === "short" ? !basic.notNearLow : false;
       const telegramBlocked = cooldown.active || ma30Deviation.overLimit || stopLossTooSmall || chaseRisk;
-      const telegramWillNotify = ["S", "A"].includes(signalLevel) && !telegramBlocked;
+      const telegramWillNotify = ["S", "A", "B"].includes(signalLevel) && !telegramBlocked;
       const noTelegramReason = telegramWillNotify
-        ? "符合 S/A 通知等級，仍受冷卻機制限制"
+        ? "符合 S/A/B 通知等級，仍受冷卻機制限制"
         : cooldown.active
           ? "冷卻中，不推播"
         : ma30Deviation.overLimit
@@ -3268,8 +3269,6 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
           ? "結構太小，不推播"
         : chaseRisk
           ? "追價風險，不推播"
-        : signalLevel === "B"
-          ? "B級只在畫面顯示，不推播"
         : signalLevel === "C"
           ? "C級不推播"
         : "D級不交易，不推播";

@@ -370,7 +370,7 @@ function shouldNotify(analysis, state) {
   const key = signalKey(analysis);
   const previous = state[key];
   const now = Date.now();
-  if (!previous) return { notify: true, key, reason: "新 S/A 訊號" };
+  if (!previous) return { notify: true, key, reason: "新 S/A/B 訊號" };
   const elapsedMinutes = (now - Number(previous.time || 0)) / 60000;
   if (elapsedMinutes >= COOLDOWN_MINUTES) return { notify: true, key, reason: "冷卻結束" };
   return { notify: false, key, reason: `30 分鐘冷卻中，剩餘 ${Math.ceil(COOLDOWN_MINUTES - elapsedMinutes)} 分鐘` };
@@ -469,7 +469,7 @@ function scoreAdvancedAnalysis(klines15m, basic) {
     signalLevel = "B";
   }
 
-  const canNotify = ["S", "A"].includes(signalLevel)
+  const canNotify = ["S", "A", "B"].includes(signalLevel)
     && !chaseRisk
     && !plan.stopLossTooSmall
     && !ma30TooFar;
@@ -524,11 +524,12 @@ function scoreAdvancedAnalysis(klines15m, basic) {
 }
 
 function telegramText(analysis) {
-  const icon = analysis.signalLevel === "S" ? "⭐" : "🟢";
+  const icon = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🔥🔥" : "🟡";
+  const bLevelNote = analysis.signalLevel === "B" ? "\n小倉觀察，不建議追價" : "";
   const compactSymbol = analysis.symbol.replace("-", "");
   return `${icon} ${analysis.signalLevel}級 ${compactSymbol} 可${analysis.sideLabel}
 
-${analysis.finalSignal}
+${analysis.finalSignal}${bLevelNote}
 
 幣種：${analysis.symbol}
 方向：${analysis.sideLabel}
@@ -543,7 +544,7 @@ Momentum Score：${analysis.momentumScore}/100
 RSI：${number(analysis.rsi, 1)}
 Volume Ratio：${number(analysis.volumeRatio, 2)}x
 ATR%：${number(analysis.atrPercent, 3)}%
-主要理由：${analysis.warnings.length ? analysis.warnings.join("｜") : "S/A 條件符合，允許推播"}
+主要理由：${analysis.warnings.length ? analysis.warnings.join("｜") : "S/A/B 條件符合，允許推播"}
 時間：${new Date().toLocaleString("zh-TW", { hour12: false, timeZone: "Asia/Taipei" })}`;
 }
 
@@ -596,8 +597,8 @@ async function main() {
 
   saveState(state);
 
-  if (!analyses.some((item) => ["S", "A"].includes(item.signalLevel))) {
-    console.log("No S/A signal.");
+  if (!analyses.some((item) => ["S", "A", "B"].includes(item.signalLevel))) {
+    console.log("No S/A/B signal.");
   }
 }
 

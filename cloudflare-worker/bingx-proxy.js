@@ -525,7 +525,7 @@ function scoreAdvancedAnalysis(klines15m, basic) {
     signalLevel = "B";
   }
 
-  const canNotify = ["S", "A"].includes(signalLevel)
+  const canNotify = ["S", "A", "B"].includes(signalLevel)
     && !chaseRisk
     && !plan.stopLossTooSmall
     && !ma30TooFar;
@@ -594,7 +594,7 @@ async function shouldNotify(analysis, env) {
 
   const previous = await env.SIGNAL_KV.get(key, { type: "json" });
   const now = Date.now();
-  if (!previous) return { notify: true, key, reason: "新 S/A 訊號" };
+  if (!previous) return { notify: true, key, reason: "新 S/A/B 訊號" };
 
   const elapsedMinutes = (now - Number(previous.time || 0)) / 60000;
   const upgraded = signalLevelRank(analysis.signalLevel) > signalLevelRank(previous.level);
@@ -621,11 +621,12 @@ function signalLevelRank(level) {
 }
 
 function telegramText(analysis) {
-  const icon = analysis.signalLevel === "S" ? "⭐" : "🟢";
+  const icon = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🔥🔥" : "🟡";
+  const bLevelNote = analysis.signalLevel === "B" ? "\n小倉觀察，不建議追價" : "";
   const compactSymbol = analysis.symbol.replace("-", "");
   return `${icon} ${analysis.signalLevel}級 ${compactSymbol} 可${analysis.sideLabel}
 
-${analysis.finalSignal}
+${analysis.finalSignal}${bLevelNote}
 
 幣種：${analysis.symbol}
 方向：${analysis.sideLabel}
@@ -640,7 +641,7 @@ Momentum Score：${analysis.momentumScore}/100
 RSI：${number(analysis.rsi, 1)}
 Volume Ratio：${number(analysis.volumeRatio, 2)}x
 ATR%：${number(analysis.atrPercent, 3)}%
-主要理由：${analysis.warnings.length ? analysis.warnings.join("｜") : "S/A 條件符合，允許推播"}
+主要理由：${analysis.warnings.length ? analysis.warnings.join("｜") : "S/A/B 條件符合，允許推播"}
 時間：${new Date().toLocaleString("zh-TW", { hour12: false, timeZone: "Asia/Taipei" })}`;
 }
 
@@ -689,8 +690,8 @@ async function runScheduledScan(env) {
     }
   }
 
-  if (!analyses.some((item) => ["S", "A"].includes(item.signalLevel))) {
-    console.log("[scheduled] No S/A signal.");
+  if (!analyses.some((item) => ["S", "A", "B"].includes(item.signalLevel))) {
+    console.log("[scheduled] No S/A/B signal.");
   }
 }
 
