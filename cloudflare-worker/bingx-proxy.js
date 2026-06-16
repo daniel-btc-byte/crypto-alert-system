@@ -130,12 +130,6 @@ async function fetchBingx(path, params) {
   });
   const responseBody = await response.text();
 
-  console.log("[BingX Worker Proxy]", {
-    endpoint: url.toString(),
-    httpStatus: response.status,
-    responseBody
-  });
-
   if (!response.ok) throw new Error(`BingX HTTP ${response.status}: ${responseBody}`);
 
   const payload = JSON.parse(responseBody);
@@ -588,7 +582,6 @@ async function shouldNotify(analysis, env) {
 
   const key = signalKey(analysis);
   if (!env.SIGNAL_KV) {
-    console.log("[scheduled] SIGNAL_KV is not bound; cooldown is memoryless for this run");
     return { notify: true, key, reason: "無 KV，允許本次通知" };
   }
 
@@ -660,38 +653,60 @@ async function sendTelegram(text, env) {
 }
 
 async function scanSymbol(symbol) {
-  const [klines4h, klines15m, price] = await Promise.all([
+  const [klines4hResult, klines15mResult, priceResult] = await Promise.allSettled([
     fetchKlinesValue(symbol, "4h", 300),
     fetchKlinesValue(symbol, "15m", 300),
     fetchPriceValue(symbol)
   ]);
+
+  const priceFailed = priceResult.status === "rejected";
+  const klinesFailed = klines4hResult.status === "rejected" || klines15mResult.status === "rejected";
+  if (priceFailed) console.log(`${symbol} price fetch failed`);
+  if (klinesFailed) console.log(`${symbol} klines fetch failed`);
+  if (priceFailed || klinesFailed) {
+    console.log(`${symbol} 資料取得失敗`);
+    return { symbol, signalLevel: "ERROR", error: true };
+  }
+
+  const klines4h = klines4hResult.value;
+  const klines15m = klines15mResult.value;
+  const price = priceResult.value;
   const basic = basicFromKlines(symbol, price, klines4h, klines15m);
   const analysis = scoreAdvancedAnalysis(klines15m, basic);
-  if (!analysis) throw new Error(`Unable to calculate analysis for ${symbol}`);
+  if (!analysis) {
+    console.log(`${symbol} 資料取得失敗`);
+    return { symbol, signalLevel: "ERROR", error: true };
+  }
   return analysis;
 }
 
 async function runScheduledScan(env) {
-  const analyses = [];
   for (const symbol of SCAN_SYMBOLS) {
     try {
       const analysis = await scanSymbol(symbol);
-      analyses.push(analysis);
+      if (analysis.error) continue;
       const decision = await shouldNotify(analysis, env);
-      console.log(`[scheduled] ${symbol} ${analysis.signalLevel} ${analysis.finalSignal} | Market ${analysis.marketScore} | Momentum ${analysis.momentumScore} | RR ${number(analysis.rr, 2)} | notify=${decision.notify ? "yes" : "no"} ${decision.reason}`);
 
       if (decision.notify) {
-        await sendTelegram(telegramText(analysis), env);
-        await rememberNotification(analysis, env, decision);
-        console.log(`[scheduled] ${symbol} Telegram sent`);
+        try {
+          await sendTelegram(telegramText(analysis), env);
+          await rememberNotification(analysis, env, decision);
+          const sideText = analysis.direction === "long" ? "做多" : analysis.direction === "short" ? "做空" : "";
+          const prefix = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🔥🔥" : "🟡";
+          console.log(`${prefix} ${symbol} ${analysis.signalLevel}級${sideText}`);
+          console.log(`Market ${analysis.marketScore}`);
+          console.log(`Momentum ${analysis.momentumScore}`);
+          console.log(`RR ${number(analysis.rr, 2)}`);
+          console.log("Telegram 已發送");
+        } catch (error) {
+          console.log("Telegram failed");
+        }
+      } else if (!["S", "A", "B"].includes(analysis.signalLevel)) {
+        console.log(`[scheduled] ${symbol} ${analysis.signalLevel} ${analysis.finalSignal}`);
       }
     } catch (error) {
-      console.log("[scheduled] scan failed", { symbol, error: error.message });
+      console.log(`${symbol} 資料取得失敗`);
     }
-  }
-
-  if (!analyses.some((item) => ["S", "A", "B"].includes(item.signalLevel))) {
-    console.log("[scheduled] No S/A/B signal.");
   }
 }
 
@@ -714,10 +729,9 @@ export default {
         ]
       }, 404);
     } catch (error) {
-      console.log("[BingX Worker Proxy failed]", {
-        path: requestUrl.pathname,
-        error: error.message
-      });
+      const symbol = normalizeSymbol(requestUrl.searchParams.get("symbol"));
+      if (requestUrl.pathname === "/price") console.log(`${symbol} price fetch failed`);
+      else if (requestUrl.pathname === "/klines") console.log(`${symbol} klines fetch failed`);
       return json({ error: error.message }, 500);
     }
   },
