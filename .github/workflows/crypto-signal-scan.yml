@@ -1,0 +1,35 @@
+name: Crypto Signal Scan
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Restore signal cooldown cache
+        uses: actions/cache@v4
+        with:
+          path: .cache
+          key: signal-cooldown-${{ github.run_id }}
+          restore-keys: |
+            signal-cooldown-
+
+      - name: Run crypto signal scan
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node scripts/scan-signals.js
