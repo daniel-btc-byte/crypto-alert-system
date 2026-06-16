@@ -1,17 +1,24 @@
-const SYMBOLS = ["BTC-USDT", "ETH-USDT", "SOL-USDT", "DOGE-USDT"];
-const BINGX_BASE = "https://open-api.bingx.com/openApi/swap/v2/quote";
+const fs = require("node:fs");
+const path = require("node:path");
+
+const WORKER_BASE_URL = "https://bingx-proxy.danielfeng8.workers.dev";
+const SYMBOLS = ["BTC-USDT", "ETH-USDT", "SOL-USDT", "XRP-USDT", "DOGE-USDT"];
+const COOLDOWN_MINUTES = 30;
+const STATE_FILE = path.join(process.cwd(), ".cache", "signal-cooldown.json");
 
 const CONFIG = {
   minStopLossPercent: {
     BTC: 0.5,
     ETH: 0.7,
     SOL: 1,
+    XRP: 1,
     DOGE: 1
   },
   ma30MaxDeviationPercent: {
     BTC: 1.2,
     ETH: 1.5,
     SOL: 2,
+    XRP: 2,
     DOGE: 2
   },
   chaseBufferPercent: 0.3
@@ -36,39 +43,26 @@ function priceNumber(value) {
   return value.toFixed(6);
 }
 
-function numberFrom(...values) {
-  return values.map(Number).find(Number.isFinite);
-}
-
 function normalizeKline(item) {
-  if (Array.isArray(item)) {
-    return {
-      time: numberFrom(item[0], item[6]),
-      open: Number(item[1]),
-      high: Number(item[2]),
-      low: Number(item[3]),
-      close: Number(item[4]),
-      volume: Number(item[5])
-    };
-  }
-
   return {
-    time: numberFrom(item.time, item.openTime, item.timestamp, item.T, item.t),
-    open: Number(item.open ?? item.o),
-    high: Number(item.high ?? item.h),
-    low: Number(item.low ?? item.l),
-    close: Number(item.close ?? item.c),
-    volume: Number(item.volume ?? item.vol ?? item.v ?? item.amount)
+    time: Number(item.time),
+    open: Number(item.open),
+    high: Number(item.high),
+    low: Number(item.low),
+    close: Number(item.close),
+    volume: Number(item.volume)
   };
 }
 
-function normalizeKlines(payload) {
-  const raw = Array.isArray(payload) ? payload : payload?.data;
-  if (!Array.isArray(raw)) throw new Error("BingX kline response did not contain a data array");
+function extractKlines(payload) {
+  const raw = Array.isArray(payload) ? payload : payload && payload.data;
+  if (!Array.isArray(raw)) throw new Error("Worker kline response did not contain data array");
+
   const candles = raw.map(normalizeKline)
     .filter((item) => [item.time, item.open, item.high, item.low, item.close].every(Number.isFinite))
     .sort((a, b) => a.time - b.time);
-  if (!candles.length) throw new Error("BingX kline response did not contain usable candles");
+
+  if (!candles.length) throw new Error("Worker kline response did not contain usable candles");
   return candles;
 }
 
@@ -76,28 +70,23 @@ async function fetchJson(url) {
   const response = await fetch(url, { headers: { Accept: "application/json" } });
   const text = await response.text();
   if (!response.ok) throw new Error(`HTTP ${response.status}: ${text.slice(0, 500)}`);
-  const payload = JSON.parse(text);
-  if (payload.code !== undefined && Number(payload.code) !== 0) {
-    throw new Error(payload.msg || payload.message || text.slice(0, 500));
-  }
-  return payload;
+  return JSON.parse(text);
 }
 
 async function fetchKlines(symbol, interval, limit = 300) {
-  const url = new URL(`${BINGX_BASE}/klines`);
+  const url = new URL("/klines", WORKER_BASE_URL);
   url.searchParams.set("symbol", symbol);
   url.searchParams.set("interval", interval);
   url.searchParams.set("limit", String(limit));
-  return normalizeKlines(await fetchJson(url.toString()));
+  return extractKlines(await fetchJson(url.toString()));
 }
 
 async function fetchPrice(symbol) {
-  const url = new URL(`${BINGX_BASE}/price`);
+  const url = new URL("/price", WORKER_BASE_URL);
   url.searchParams.set("symbol", symbol);
   const payload = await fetchJson(url.toString());
-  const data = payload?.data ?? payload;
-  const price = Number(data.price ?? data.lastPrice ?? data.close ?? data.markPrice);
-  if (!Number.isFinite(price)) throw new Error(`BingX price response did not contain price for ${symbol}`);
+  const price = Number(payload.price ?? payload.data?.price);
+  if (!Number.isFinite(price)) throw new Error(`Worker price response did not contain price for ${symbol}`);
   return price;
 }
 
@@ -174,12 +163,14 @@ function buildMacdAnalysis(closes) {
   const ema12 = emaSeries(closes, 12);
   const ema26 = emaSeries(closes, 26);
   if (!ema12.length || !ema26.length) return null;
+
   const macdLine = closes.map((_, index) => (
     Number.isFinite(ema12[index]) && Number.isFinite(ema26[index]) ? ema12[index] - ema26[index] : null
   ));
   const compactMacd = macdLine.filter(Number.isFinite);
   const compactSignal = emaSeries(compactMacd, 9);
   if (!compactSignal.length) return null;
+
   let signalIndex = 0;
   const signalLine = macdLine.map((value) => {
     if (!Number.isFinite(value)) return null;
@@ -191,12 +182,14 @@ function buildMacdAnalysis(closes) {
     const signal = signalLine[index];
     return Number.isFinite(value) && Number.isFinite(signal) ? value - signal : null;
   });
+
   const latestMacd = macdLine.at(-1);
   const latestSignal = signalLine.at(-1);
   const latestHistogram = histogram.at(-1);
   const previousHistogram = histogram.slice(0, -1).filter(Number.isFinite).at(-1);
   const recentHistogram = histogram.filter(Number.isFinite).slice(-4);
   if (![latestMacd, latestSignal, latestHistogram].every(Number.isFinite)) return null;
+
   const crossType = latestMacd > latestSignal ? "golden" : latestMacd < latestSignal ? "death" : "neutral";
   const histogramGrowing = recentHistogram.length >= 3
     && recentHistogram.at(-1) > recentHistogram.at(-2)
@@ -204,6 +197,7 @@ function buildMacdAnalysis(closes) {
   const histogramFalling = recentHistogram.length >= 3
     && recentHistogram.at(-1) < recentHistogram.at(-2)
     && recentHistogram.at(-2) < recentHistogram.at(-3);
+
   return {
     line: latestMacd,
     signal: latestSignal,
@@ -235,6 +229,7 @@ function stopLossDistancePercent(entryPrice, stopLoss) {
 
 function tradePlanMetrics(side, basic) {
   if (!side || !Number.isFinite(basic.price)) return { rr: null };
+
   const breakoutThreshold = getBreakoutThreshold(basic.symbol);
   const longBreakout = side === "long"
     && Number.isFinite(basic.previousRecentHigh)
@@ -291,6 +286,7 @@ function basicFromKlines(symbol, price, klines4h, klines15m) {
   const recentHigh = Math.max(...last20of15m.map((item) => item.high));
   const recentLow = Math.min(...last20of15m.map((item) => item.low));
   const buffer = CONFIG.chaseBufferPercent / 100;
+
   return {
     symbol,
     price,
@@ -316,6 +312,7 @@ function marketScore(side, context) {
   if (isLong ? context.price > context.ma4h : context.price < context.ma4h) score += 25;
   if (isLong ? context.price > context.ma15m30 : context.price < context.ma15m30) score += 20;
   if (isLong ? context.ma5 > context.ma10 : context.ma5 < context.ma10) score += 15;
+
   const macdOk = isLong
     ? context.macd.crossType === "golden" && context.macdFresh
     : context.macd.crossType === "death" && context.macdFresh;
@@ -324,6 +321,7 @@ function marketScore(side, context) {
     : context.macd.histogramFalling || context.macd.histogramNearBearFlip;
   if (macdOk) score += 10;
   else if (macdMomentumOk) score += 7;
+
   if (Number.isFinite(context.rsi) && context.rsi >= 30 && context.rsi <= 70) score += 10;
   if (context.volumeRatio >= 0.8) score += 10;
   if (context.atrInfo.normal) score += 10;
@@ -350,12 +348,44 @@ function momentumScore(side, context) {
   return Math.min(100, Math.max(0, Math.round(score)));
 }
 
-function optionalCooldownActive() {
-  const raw = process.env.TRADE_COOLDOWN_UNTIL || "";
-  if (!raw) return { active: false, remainingMinutes: 0 };
-  const until = Number(raw) || Date.parse(raw);
-  const remainingMs = Math.max(0, until - Date.now());
-  return { active: remainingMs > 0, remainingMinutes: Math.ceil(remainingMs / 60000) };
+function loadState() {
+  try {
+    return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+function saveState(state) {
+  fs.mkdirSync(path.dirname(STATE_FILE), { recursive: true });
+  fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+}
+
+function signalKey(analysis) {
+  return `${analysis.symbol}-${analysis.direction}-${analysis.signalLevel}`;
+}
+
+function shouldNotify(analysis, state) {
+  if (!analysis.canNotify) return { notify: false, reason: analysis.notifyBlockedReason || "不符合通知條件" };
+  const key = signalKey(analysis);
+  const previous = state[key];
+  const now = Date.now();
+  if (!previous) return { notify: true, key, reason: "新 S/A 訊號" };
+  const elapsedMinutes = (now - Number(previous.time || 0)) / 60000;
+  if (elapsedMinutes >= COOLDOWN_MINUTES) return { notify: true, key, reason: "冷卻結束" };
+  return { notify: false, key, reason: `30 分鐘冷卻中，剩餘 ${Math.ceil(COOLDOWN_MINUTES - elapsedMinutes)} 分鐘` };
+}
+
+function rememberNotification(analysis, state, decision) {
+  if (!decision.key) return;
+  state[decision.key] = {
+    symbol: analysis.symbol,
+    direction: analysis.direction,
+    level: analysis.signalLevel,
+    price: analysis.price,
+    finalSignal: analysis.finalSignal,
+    time: Date.now()
+  };
 }
 
 function scoreAdvancedAnalysis(klines15m, basic) {
@@ -376,6 +406,7 @@ function scoreAdvancedAnalysis(klines15m, basic) {
   const isBearEnvironment = basic.price < basic.ma4h && basic.price < basic.ma15m30;
   const marketEnvironment = isBullEnvironment ? "bull" : isBearEnvironment ? "bear" : "mixed";
   const direction = isBullEnvironment ? "long" : isBearEnvironment ? "short" : null;
+
   const last8 = klines15m.slice(-8);
   const rangeHigh = Math.max(...last8.map((item) => item.high));
   const rangeLow = Math.min(...last8.map((item) => item.low));
@@ -384,15 +415,14 @@ function scoreAdvancedAnalysis(klines15m, basic) {
   const breakoutThreshold = getBreakoutThreshold(basic.symbol);
   const longBreakout = Number.isFinite(basic.previousRecentHigh) && basic.price > basic.previousRecentHigh * (1 + breakoutThreshold);
   const shortBreakout = Number.isFinite(basic.previousRecentLow) && basic.price < basic.previousRecentLow * (1 - breakoutThreshold);
-  const brokeRecentRange = longBreakout || shortBreakout;
-  const consolidationTooLong = last8.length >= 8 && Number.isFinite(rangePercent) && rangePercent < 0.45 && !brokeRecentRange;
+  const consolidationTooLong = last8.length >= 8 && Number.isFinite(rangePercent) && rangePercent < 0.45 && !(longBreakout || shortBreakout);
   const priceSlope = closes.length >= 6 && closes.at(-6) > 0 ? ((closes.at(-1) - closes.at(-6)) / closes.at(-6)) * 100 : 0;
+
   const plan = tradePlanMetrics(direction, { ...basic, atr });
   const ma30Limit = CONFIG.ma30MaxDeviationPercent[baseSymbol(basic.symbol)] ?? 2;
   const ma30Distance = Math.abs(basic.price - basic.ma15m30) / basic.price * 100;
   const ma30TooFar = Number.isFinite(ma30Distance) && ma30Distance > ma30Limit;
   const chaseRisk = direction === "long" ? !basic.notNearHigh : direction === "short" ? !basic.notNearLow : false;
-  const cooldown = optionalCooldownActive();
 
   const context = { ...basic, macd, macdFresh, rsi, volumeRatio, atrInfo, priceSlope };
   const mScore = marketScore(direction, context);
@@ -408,8 +438,7 @@ function scoreAdvancedAnalysis(klines15m, basic) {
     : direction === "short"
       ? basic.ma5 > basic.ma10 || macd.crossType === "golden"
       : true;
-  const hardBlocked = cooldown.active
-    || !direction
+  const hardBlocked = !direction
     || plan.stopLossTooSmall
     || ma30TooFar
     || chaseRisk
@@ -441,7 +470,6 @@ function scoreAdvancedAnalysis(klines15m, basic) {
   }
 
   const canNotify = ["S", "A"].includes(signalLevel)
-    && !cooldown.active
     && !chaseRisk
     && !plan.stopLossTooSmall
     && !ma30TooFar;
@@ -451,14 +479,11 @@ function scoreAdvancedAnalysis(klines15m, basic) {
       ? direction === "long" ? "強烈做多" : "強烈做空"
       : signalLevel === "B"
         ? direction === "long" ? "做多｜可以做" : "做空｜可以做"
-        : cooldown.active
-          ? "🧊 冷卻中，暫停交易"
-          : ma30TooFar
-            ? "⚠ 偏離 MA30 過遠，等待回踩"
-            : "不交易";
+        : ma30TooFar
+          ? "⚠ 偏離 MA30 過遠，等待回踩"
+          : "不交易";
 
   const warnings = [];
-  if (cooldown.active) warnings.push(`冷卻中，剩餘 ${cooldown.remainingMinutes} 分鐘`);
   if (ma30TooFar) warnings.push(`偏離 MA30 過遠：目前 ${number(ma30Distance, 2)}% / 上限 ${number(ma30Limit, 2)}%`);
   if (chaseRisk) warnings.push("追價風險，不推播");
   if (plan.stopLossTooSmall) warnings.push(`結構太小：止損距離 ${number(plan.stopLossPercent, 2)}% < 最低 ${number(plan.minStopLossPercent, 2)}%`);
@@ -490,11 +515,10 @@ function scoreAdvancedAnalysis(klines15m, basic) {
     rsi,
     warnings,
     notifyBlockedReason: !canNotify ? (
-      cooldown.active ? "冷卻中"
-        : ma30TooFar ? "偏離 MA30 過遠"
-          : plan.stopLossTooSmall ? "結構太小"
-            : chaseRisk ? "追價風險"
-              : `${signalLevel}級不推播`
+      ma30TooFar ? "偏離 MA30 過遠"
+        : plan.stopLossTooSmall ? "結構太小"
+          : chaseRisk ? "追價風險"
+            : `${signalLevel}級不推播`
     ) : ""
   };
 }
@@ -527,6 +551,7 @@ async function sendTelegram(text) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) throw new Error("Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID");
+
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -549,14 +574,19 @@ async function scanSymbol(symbol) {
 }
 
 async function main() {
+  const state = loadState();
   const analyses = [];
+
   for (const symbol of SYMBOLS) {
     try {
       const analysis = await scanSymbol(symbol);
       analyses.push(analysis);
-      console.log(`[${symbol}] ${analysis.signalLevel} ${analysis.finalSignal} | Market ${analysis.marketScore} | Momentum ${analysis.momentumScore} | RR ${number(analysis.rr, 2)} | notify=${analysis.canNotify ? "yes" : "no"} ${analysis.notifyBlockedReason}`);
-      if (analysis.canNotify) {
+      const decision = shouldNotify(analysis, state);
+      console.log(`[${symbol}] ${analysis.signalLevel} ${analysis.finalSignal} | Market ${analysis.marketScore} | Momentum ${analysis.momentumScore} | RR ${number(analysis.rr, 2)} | notify=${decision.notify ? "yes" : "no"} ${decision.reason}`);
+
+      if (decision.notify) {
         await sendTelegram(telegramText(analysis));
+        rememberNotification(analysis, state, decision);
         console.log(`[${symbol}] Telegram sent`);
       }
     } catch (error) {
@@ -564,8 +594,10 @@ async function main() {
     }
   }
 
-  if (!analyses.some((item) => item.canNotify)) {
-    console.log("No S/A signal eligible for Telegram notification.");
+  saveState(state);
+
+  if (!analyses.some((item) => ["S", "A"].includes(item.signalLevel))) {
+    console.log("No S/A signal.");
   }
 }
 

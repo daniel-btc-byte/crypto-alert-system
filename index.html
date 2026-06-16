@@ -1326,6 +1326,10 @@
                 <input id="minStopSol" type="number" min="0" step="0.1" value="1">
               </div>
               <div class="field">
+                <label for="minStopXrp">最小止損距離 XRP (%)</label>
+                <input id="minStopXrp" type="number" min="0" step="0.1" value="1">
+              </div>
+              <div class="field">
                 <label for="cooldownMinutes">冷卻時間（分鐘）</label>
                 <input id="cooldownMinutes" type="number" min="0" step="1" value="30">
               </div>
@@ -1340,6 +1344,10 @@
               <div class="field">
                 <label for="ma30LimitSol">SOL MA30 最大偏離 (%)</label>
                 <input id="ma30LimitSol" type="number" min="0" step="0.1" value="2">
+              </div>
+              <div class="field">
+                <label for="ma30LimitXrp">XRP MA30 最大偏離 (%)</label>
+                <input id="ma30LimitXrp" type="number" min="0" step="0.1" value="2">
               </div>
               <div class="field">
                 <label for="ma30LimitDoge">DOGE MA30 最大偏離 (%)</label>
@@ -1610,7 +1618,7 @@
     const recordCardsEl = document.querySelector("#recordCards");
     const emptyState = document.querySelector("#emptyState");
     const fields = ["recordId", "date", "side", "leverage", "entry", "exit", "quantity", "fee", "risk", "setup", "reason", "note"];
-    const marketFields = ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "recentHigh", "recentLow", "chaseBufferPercent", "minStopBtc", "minStopEth", "minStopSol", "cooldownMinutes", "ma30LimitBtc", "ma30LimitEth", "ma30LimitSol", "ma30LimitDoge", "trendMode", "entryMode"];
+    const marketFields = ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "recentHigh", "recentLow", "chaseBufferPercent", "minStopBtc", "minStopEth", "minStopSol", "minStopXrp", "cooldownMinutes", "ma30LimitBtc", "ma30LimitEth", "ma30LimitSol", "ma30LimitXrp", "ma30LimitDoge", "trendMode", "entryMode"];
     const tradeCooldownStorageKey = "trade-cooldown-until-v1";
     const marketStorageKeyBase = "btc-market-dashboard-v1";
     const layoutStorageKey = "btc-dashboard-layout-mode";
@@ -1673,6 +1681,7 @@
       if (s.includes("BTC")) return Number(document.querySelector("#minStopBtc")?.value) || 0.5;
       if (s.includes("ETH")) return Number(document.querySelector("#minStopEth")?.value) || 0.7;
       if (s.includes("SOL")) return Number(document.querySelector("#minStopSol")?.value) || 1;
+      if (s.includes("XRP")) return Number(document.querySelector("#minStopXrp")?.value) || 1;
       return Number(document.querySelector("#minStopSol")?.value) || 1;
     }
 
@@ -1701,6 +1710,7 @@
       if (s.includes("BTC")) return Number(document.querySelector("#ma30LimitBtc")?.value) || 1.2;
       if (s.includes("ETH")) return Number(document.querySelector("#ma30LimitEth")?.value) || 1.5;
       if (s.includes("SOL")) return Number(document.querySelector("#ma30LimitSol")?.value) || 2;
+      if (s.includes("XRP")) return Number(document.querySelector("#ma30LimitXrp")?.value) || 2;
       if (s.includes("DOGE")) return Number(document.querySelector("#ma30LimitDoge")?.value) || 2;
       return Number(document.querySelector("#ma30LimitSol")?.value) || 2;
     }
@@ -2472,6 +2482,9 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
       if (!document.querySelector("#minStopSol").value) {
         document.querySelector("#minStopSol").value = "1";
       }
+      if (!document.querySelector("#minStopXrp").value) {
+        document.querySelector("#minStopXrp").value = "1";
+      }
       if (!document.querySelector("#cooldownMinutes").value) {
         document.querySelector("#cooldownMinutes").value = "30";
       }
@@ -2483,6 +2496,9 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
       }
       if (!document.querySelector("#ma30LimitSol").value) {
         document.querySelector("#ma30LimitSol").value = "2";
+      }
+      if (!document.querySelector("#ma30LimitXrp").value) {
+        document.querySelector("#ma30LimitXrp").value = "2";
       }
       if (!document.querySelector("#ma30LimitDoge").value) {
         document.querySelector("#ma30LimitDoge").value = "2";
