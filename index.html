@@ -2058,14 +2058,16 @@
     function telegramNotificationText(symbol, analysis, basic, notifyDecision = null) {
       const { sideLabel, metrics, entryZone, reason } = telegramTradeSummary(analysis, basic);
       const bell = String.fromCodePoint(0x1F514);
-      const levelIcon = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🔥🔥" : "🟡";
+      const levelIcon = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🟢" : "🟡";
       const bLevelNote = analysis.signalLevel === "B" ? "\n小倉觀察，不建議追價" : "";
-      const compactSymbol = String(symbol || "").replace("-", "");
+      const noTradeReasons = Array.isArray(analysis.nonTradeReasons) && analysis.nonTradeReasons.length
+        ? analysis.nonTradeReasons.map((item) => `- ${item}`).join("\n")
+        : "-";
       const reminder = analysis.breakoutReady
         ? "突破型訊號，小倉，不要重倉追。"
         : "有行情，但不是最佳進場點，等待回踩或確認。";
       const notifyReason = notifyDecision?.reason || "新訊號";
-      return `${levelIcon} ${analysis.signalLevel || "-"}級 ${compactSymbol} 可${sideLabel}
+      return `${levelIcon} ${analysis.signalLevel || "-"}級${sideLabel}
 
 ${bell} ${symbol}
 
@@ -2083,6 +2085,8 @@ RR：${Number.isFinite(metrics.rr) ? number(metrics.rr, 2) : "-"}
 Market Score：${analysis.marketScore}/100
 Entry Quality：${analysis.entryScore}/100
 Momentum Score：${analysis.momentumScore ?? 0}/100
+不交易原因：
+${noTradeReasons}
 是否通知 Telegram：是
 通知原因：${notifyReason}
 提醒：${reminder}
@@ -2852,9 +2856,9 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
       if (context.atrInfo.low) warn("ATR 波動不足，行情可能走不動");
       if (context.atrInfo.high) warn("ATR 高波動，降低倉位、止損放寬");
       if (hardChase) warn(isLong ? "接近高點，避免市價追單，等待回踩" : "接近低點，避免市價追單，等待反彈");
-      if (Number.isFinite(context.rr) && context.rr >= 0.8 && context.rr < 1.2) warn("RR 偏低，只能小倉");
+      if (Number.isFinite(context.rr) && context.rr >= 0.6 && context.rr < 1.2) warn("RR 偏低，只能小倉");
 
-      if (Number.isFinite(context.rr) && context.rr < 0.8) hardBlocks.push("RR < 0.8");
+      if (Number.isFinite(context.rr) && context.rr < 0.6) hardBlocks.push("RR < 0.6");
       if (!Number.isFinite(context.rr)) warn("RR 資料不足");
       if (isLong && rsiValue !== null && rsiValue > 88) hardBlocks.push("多單 RSI > 88");
       if (!isLong && rsiValue !== null && rsiValue < 12) hardBlocks.push("空單 RSI < 12");
@@ -2921,17 +2925,17 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
         if (rr >= 2) return "RR 優秀";
         if (rr >= 1.5) return "RR 合格";
         if (rr >= 1.2) return "RR 普通，需小倉";
-        if (rr >= 0.8) return "RR 偏低，只能小倉";
+        if (rr >= 0.6) return "RR 偏低，只能小倉";
         return "RR 不足，禁止進場";
       };
       const rrTone = (rr) => {
-        if (!Number.isFinite(rr) || rr < 0.8) return "loss";
+        if (!Number.isFinite(rr) || rr < 0.6) return "loss";
         if (rr < 1.5) return "flat";
         return "win";
       };
       const rrLine = (rr) => `<span class="${rrTone(rr)}">RR：${Number.isFinite(rr) ? number(rr, 2) : "-"}｜${rrLabel(rr)}</span>`;
       const lowRrHint = (rr) => Number.isFinite(rr) && rr < 1.2
-        ? rr >= 0.8 ? "RR 偏低，只能小倉。" : "RR 不足，禁止進場。"
+        ? rr >= 0.6 ? "RR 偏低，只能小倉。" : "RR 不足，禁止進場。"
         : "";
       const stopLossLine = (metrics) => {
         if (!Number.isFinite(metrics.stopLossPercent)) return "";
@@ -3149,7 +3153,7 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
             : baseEntryScore;
       const entryGrade = hardBlocked ? "Hard Block" : entryScore === 0 ? "等待" : entryScore >= 90 ? "A" : entryScore >= 70 ? "B" : entryScore >= 50 ? "C" : marketGrade;
       const rrTradable = Number.isFinite(planMetrics.rr) && planMetrics.rr >= 1.2;
-      const rrSmallOnly = Number.isFinite(planMetrics.rr) && planMetrics.rr >= 0.8 && planMetrics.rr < 1.2;
+      const rrSmallOnly = Number.isFinite(planMetrics.rr) && planMetrics.rr >= 0.6 && planMetrics.rr < 1.2;
       const severeScoreConflict = marketScore >= 75 && momentumScore < 20;
       const againstMajorTrend = (direction === "long" && majorTrend === "偏空") || (direction === "short" && majorTrend === "偏多");
       const longRsiOverheated = direction === "long" && Number.isFinite(rsi) && rsi > 88;
@@ -3185,11 +3189,11 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
       let signalLevel = "C";
       if (sQualified && !cooldown.active && !ma30Deviation.overLimit) {
         signalLevel = "S";
-      } else if (hardBlocked || consolidationTooLong || !Number.isFinite(planMetrics.rr) || planMetrics.rr < 1 || marketScore < 65 || momentumScore < 20 || severeScoreConflict) {
+      } else if (hardBlocked || consolidationTooLong || !Number.isFinite(planMetrics.rr) || planMetrics.rr < 0.6 || marketScore < 65 || momentumScore < 20 || severeScoreConflict) {
         signalLevel = "D";
       } else if (trendAligned && !waitingPullback && notChasing && planMetrics.rr >= 1.5 && marketScore >= 80 && momentumScore >= 60) {
         signalLevel = "A";
-      } else if (trendAligned && planMetrics.rr >= 1.2 && marketScore >= 75 && momentumScore >= 40) {
+      } else if (trendAligned && planMetrics.rr >= 0.6 && marketScore >= 75 && momentumScore >= 40) {
         signalLevel = "B";
       }
       const earlyBreakoutWatch = !breakoutReady
@@ -3222,8 +3226,8 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
           ? "✅ 可以進場"
           : rrSmallOnly
             ? "⚠️ RR 偏低，只允許觀察 / 小倉"
-          : Number.isFinite(planMetrics.rr) && planMetrics.rr < 0.8
-            ? "❌ RR 小於 0.8，禁止進場"
+          : Number.isFinite(planMetrics.rr) && planMetrics.rr < 0.6
+            ? "❌ RR 小於 0.6，禁止進場"
           : signalLevel === "B"
             ? "⚠️ 可小倉嘗試，不要重倉"
           : signalLevel === "C" && marketScore >= 50
@@ -3301,8 +3305,8 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
         warnings.push("⚠ 結構太小，不建議交易");
         warnings.push(`止損距離不足（${number(planMetrics.stopLossPercent, 2)}% < ${number(planMetrics.minStopLossPercent, 2)}%）`);
       }
-      if (rrSmallOnly) warnings.push("RR 介於 0.8～1.2，只允許觀察 / 小倉，不給正式進場");
-      if (Number.isFinite(planMetrics.rr) && planMetrics.rr < 0.8) warnings.push("RR 小於 0.8，禁止進場");
+      if (rrSmallOnly) warnings.push("RR 介於 0.6～1.2，只允許觀察 / 小倉，不給正式進場");
+      if (Number.isFinite(planMetrics.rr) && planMetrics.rr < 0.6) warnings.push("RR 小於 0.6，禁止進場");
       if (environmentReason) warnings.push(environmentReason);
       if (hardBlocked) {
         warnings.push("禁止進場");
@@ -3325,6 +3329,17 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
       if (volumeRatio < 0.2) warnings.push("量能極低，訊號可信度下降，避免市價追單");
       if (atrInfo.low) warnings.push("ATR 波動不足，行情可能走不動");
       if (macdNote) warnings.push(macdNote);
+      const nonTradeReasons = [];
+      if (!Number.isFinite(planMetrics.rr)) nonTradeReasons.push("RR 資料不足");
+      else if (planMetrics.rr < 0.6) nonTradeReasons.push(`RR 太低 (${number(planMetrics.rr, 2)})`);
+      if (marketScore < 65) nonTradeReasons.push("Market 分數不足");
+      if (momentumScore < 20) nonTradeReasons.push("Momentum 不足");
+      if (consolidationTooLong) nonTradeReasons.push("盤整過久");
+      if (!direction) nonTradeReasons.push("方向不明");
+      if (stopLossTooSmall) nonTradeReasons.push("結構太小");
+      if (ma30Deviation.overLimit) nonTradeReasons.push("偏離 MA30 過遠");
+      if (chaseRisk) nonTradeReasons.push("追價風險");
+      if (volumeRatio < 0.2) nonTradeReasons.push("量能極低");
 
       return {
         ...analysis,
@@ -3348,6 +3363,7 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
         signalStage: signalStageValue,
         telegramWillNotify,
         noTelegramReason,
+        nonTradeReasons,
         consolidationTooLong,
         severeScoreConflict,
         cooldown,
@@ -3371,7 +3387,7 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
             ma30Deviation.overLimit ? `⚠ 偏離 MA30 過遠，等待回踩｜距離 MA30：${number(ma30Deviation.percent, 2)}%｜上限：${number(ma30Deviation.limit, 2)}%` : "",
             stopLossTooSmall ? "⚠ 結構太小，不建議交易" : "",
             hardBlocked ? "禁止進場。<br>等待風險解除。" : "",
-            !canEnter && !hardBlocked ? (rrSmallOnly ? "RR 偏低，只允許觀察 / 小倉。" : Number.isFinite(planMetrics.rr) && planMetrics.rr < 0.8 ? "RR 小於 0.8，禁止進場。" : (environmentReason || "不是最佳進場點，等待確認。")) : ""
+            !canEnter && !hardBlocked ? (rrSmallOnly ? "RR 偏低，只允許觀察 / 小倉。" : Number.isFinite(planMetrics.rr) && planMetrics.rr < 0.6 ? "RR 小於 0.6，禁止進場。" : (environmentReason || "不是最佳進場點，等待確認。")) : ""
           ].filter(Boolean).join("<br>")
           : "等待方向。",
         trendMode,

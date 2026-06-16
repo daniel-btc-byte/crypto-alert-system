@@ -492,13 +492,13 @@ function scoreAdvancedAnalysis(klines15m, basic) {
     || plan.stopLossTooSmall
     || ma30TooFar
     || chaseRisk
-    || (Number.isFinite(plan.rr) && plan.rr < 0.8)
+    || (Number.isFinite(plan.rr) && plan.rr < 0.6)
     || (direction === "long" && rsi > 88)
     || (direction === "short" && rsi < 12)
     || volumeRatio < 0.2;
 
   let signalLevel = "C";
-  if (hardBlocked || consolidationTooLong || !Number.isFinite(plan.rr) || plan.rr < 1 || mScore < 65 || moScore < 20) {
+  if (hardBlocked || consolidationTooLong || !Number.isFinite(plan.rr) || plan.rr < 0.6 || mScore < 65 || moScore < 20) {
     signalLevel = "D";
   } else if (
     trendAligned
@@ -515,7 +515,7 @@ function scoreAdvancedAnalysis(klines15m, basic) {
     signalLevel = "S";
   } else if (trendAligned && !waitingPullback && plan.rr >= 1.5 && mScore >= 80 && moScore >= 60) {
     signalLevel = "A";
-  } else if (trendAligned && plan.rr >= 1.2 && mScore >= 75 && moScore >= 40) {
+  } else if (trendAligned && plan.rr >= 0.6 && mScore >= 75 && moScore >= 40) {
     signalLevel = "B";
   }
 
@@ -540,6 +540,17 @@ function scoreAdvancedAnalysis(klines15m, basic) {
   if (volumeRatio < 0.8) warnings.push(`量能偏低：${number(volumeRatio, 2)}x`);
   if (atrInfo.high) warnings.push("ATR 高波動，降低倉位");
   if (atrInfo.low) warnings.push("ATR 波動不足");
+  const nonTradeReasons = [];
+  if (!Number.isFinite(plan.rr)) nonTradeReasons.push("RR 資料不足");
+  else if (plan.rr < 0.6) nonTradeReasons.push(`RR 太低 (${number(plan.rr, 2)})`);
+  if (mScore < 65) nonTradeReasons.push("Market 分數不足");
+  if (moScore < 20) nonTradeReasons.push("Momentum 不足");
+  if (consolidationTooLong) nonTradeReasons.push("盤整過久");
+  if (!direction) nonTradeReasons.push("方向不明");
+  if (plan.stopLossTooSmall) nonTradeReasons.push("結構太小");
+  if (ma30TooFar) nonTradeReasons.push("偏離 MA30 過遠");
+  if (chaseRisk) nonTradeReasons.push("追價風險");
+  if (volumeRatio < 0.2) nonTradeReasons.push("量能極低");
 
   return {
     symbol: basic.symbol,
@@ -564,6 +575,7 @@ function scoreAdvancedAnalysis(klines15m, basic) {
     atrPercent: atrInfo.percent,
     rsi,
     warnings,
+    nonTradeReasons,
     notifyBlockedReason: !canNotify ? (
       ma30TooFar ? "偏離 MA30 過遠"
         : plan.stopLossTooSmall ? "結構太小"
@@ -614,14 +626,16 @@ function signalLevelRank(level) {
 }
 
 function telegramText(analysis) {
-  const icon = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🔥🔥" : "🟡";
+  const icon = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🟢" : "🟡";
   const bLevelNote = analysis.signalLevel === "B" ? "\n小倉觀察，不建議追價" : "";
-  const compactSymbol = analysis.symbol.replace("-", "");
-  return `${icon} ${analysis.signalLevel}級 ${compactSymbol} 可${analysis.sideLabel}
+  const noTradeReasons = Array.isArray(analysis.nonTradeReasons) && analysis.nonTradeReasons.length
+    ? analysis.nonTradeReasons.map((item) => `- ${item}`).join("\n")
+    : "-";
+  return `${icon} ${analysis.signalLevel}級${analysis.sideLabel}
 
 ${analysis.finalSignal}${bLevelNote}
 
-幣種：${analysis.symbol}
+Symbol：${analysis.symbol}
 方向：${analysis.sideLabel}
 現價：${priceNumber(analysis.price)}
 建議進場區間：${analysis.entryZone}
@@ -634,6 +648,8 @@ Momentum Score：${analysis.momentumScore}/100
 RSI：${number(analysis.rsi, 1)}
 Volume Ratio：${number(analysis.volumeRatio, 2)}x
 ATR%：${number(analysis.atrPercent, 3)}%
+不交易原因：
+${noTradeReasons}
 主要理由：${analysis.warnings.length ? analysis.warnings.join("｜") : "S/A/B 條件符合，允許推播"}
 時間：${new Date().toLocaleString("zh-TW", { hour12: false, timeZone: "Asia/Taipei" })}`;
 }
