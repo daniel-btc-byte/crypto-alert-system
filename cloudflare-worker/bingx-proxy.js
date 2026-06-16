@@ -705,17 +705,12 @@ export default {
     try {
       if (requestUrl.pathname === "/price") return await handlePrice(requestUrl);
       if (requestUrl.pathname === "/klines") return await handleKlines(requestUrl);
-      if (requestUrl.pathname === "/scheduled-test") {
-        ctx.waitUntil(runScheduledScan(env));
-        return json({ ok: true, message: "Scheduled scan started" });
-      }
 
       return json({
         error: "Not found",
         routes: [
           "/price?symbol=BTC-USDT",
-          "/klines?symbol=BTC-USDT&interval=15m&limit=200",
-          "/scheduled-test"
+          "/klines?symbol=BTC-USDT&interval=15m&limit=200"
         ]
       }, 404);
     } catch (error) {
