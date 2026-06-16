@@ -661,10 +661,8 @@ async function scanSymbol(symbol) {
 
   const priceFailed = priceResult.status === "rejected";
   const klinesFailed = klines4hResult.status === "rejected" || klines15mResult.status === "rejected";
-  if (priceFailed) console.log(`${symbol} price fetch failed`);
-  if (klinesFailed) console.log(`${symbol} klines fetch failed`);
   if (priceFailed || klinesFailed) {
-    console.log(`${symbol} 資料取得失敗`);
+    console.log(`${symbol} fetch failed`);
     return { symbol, signalLevel: "ERROR", error: true };
   }
 
@@ -674,38 +672,34 @@ async function scanSymbol(symbol) {
   const basic = basicFromKlines(symbol, price, klines4h, klines15m);
   const analysis = scoreAdvancedAnalysis(klines15m, basic);
   if (!analysis) {
-    console.log(`${symbol} 資料取得失敗`);
+    console.log(`${symbol} fetch failed`);
     return { symbol, signalLevel: "ERROR", error: true };
   }
   return analysis;
 }
 
 async function runScheduledScan(env) {
+  console.log("[scheduled] start");
   for (const symbol of SCAN_SYMBOLS) {
     try {
       const analysis = await scanSymbol(symbol);
       if (analysis.error) continue;
       const decision = await shouldNotify(analysis, env);
+      const sideText = analysis.direction === "long" ? "做多" : analysis.direction === "short" ? "做空" : "";
+      const finalText = analysis.signalLevel === "D" ? "不交易" : `${analysis.signalLevel}級${sideText}`;
+      console.log(`${symbol} ${finalText} Market ${analysis.marketScore} Momentum ${analysis.momentumScore} RR ${number(analysis.rr, 2)} notify=${decision.notify ? "yes" : "no"}`);
 
       if (decision.notify) {
         try {
           await sendTelegram(telegramText(analysis), env);
           await rememberNotification(analysis, env, decision);
-          const sideText = analysis.direction === "long" ? "做多" : analysis.direction === "short" ? "做空" : "";
-          const prefix = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🔥🔥" : "🟡";
-          console.log(`${prefix} ${symbol} ${analysis.signalLevel}級${sideText}`);
-          console.log(`Market ${analysis.marketScore}`);
-          console.log(`Momentum ${analysis.momentumScore}`);
-          console.log(`RR ${number(analysis.rr, 2)}`);
-          console.log("Telegram 已發送");
+          console.log("Telegram sent");
         } catch (error) {
           console.log("Telegram failed");
         }
-      } else if (!["S", "A", "B"].includes(analysis.signalLevel)) {
-        console.log(`[scheduled] ${symbol} ${analysis.signalLevel} ${analysis.finalSignal}`);
       }
     } catch (error) {
-      console.log(`${symbol} 資料取得失敗`);
+      console.log(`${symbol} fetch failed`);
     }
   }
 }
@@ -729,9 +723,6 @@ export default {
         ]
       }, 404);
     } catch (error) {
-      const symbol = normalizeSymbol(requestUrl.searchParams.get("symbol"));
-      if (requestUrl.pathname === "/price") console.log(`${symbol} price fetch failed`);
-      else if (requestUrl.pathname === "/klines") console.log(`${symbol} klines fetch failed`);
       return json({ error: error.message }, 500);
     }
   },
