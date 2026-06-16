@@ -1310,6 +1310,10 @@
                 <input id="chaseBufferPercent" type="number" min="0" step="0.1" value="0.3">
               </div>
               <div class="field">
+                <label for="bingxApiProxyUrl">BingX API Proxy URL</label>
+                <input id="bingxApiProxyUrl" type="url" placeholder="https://xxxx.workers.dev">
+              </div>
+              <div class="field">
                 <label for="minStopBtc">最小止損距離 BTC (%)</label>
                 <input id="minStopBtc" type="number" min="0" step="0.1" value="0.5">
               </div>
@@ -1600,6 +1604,7 @@
     const telegramChatIdKey = "telegramChatId";
     const telegramNotifiedKey = "telegram-notified-signals-v1";
     const telegramSignalStateKey = "telegram-signal-state-v1";
+    const bingxApiProxyUrlKey = "bingx-api-proxy-url-v1";
     const form = document.querySelector("#tradeForm");
     const recordsEl = document.querySelector("#records");
     const recordCardsEl = document.querySelector("#recordCards");
@@ -1782,6 +1787,44 @@
         token: localStorage.getItem(telegramBotTokenKey) || "",
         chatId: localStorage.getItem(telegramChatIdKey) || ""
       };
+    }
+
+    function loadBingxApiProxyUrl() {
+      const input = document.querySelector("#bingxApiProxyUrl");
+      if (input) input.value = localStorage.getItem(bingxApiProxyUrlKey) || "";
+    }
+
+    function saveBingxApiProxyUrl() {
+      const input = document.querySelector("#bingxApiProxyUrl");
+      const value = (input?.value || "").trim().replace(/\/+$/, "");
+      localStorage.setItem(bingxApiProxyUrlKey, value);
+      if (input) input.value = value;
+    }
+
+    function bingxApiProxyUrl() {
+      return (localStorage.getItem(bingxApiProxyUrlKey) || "").trim().replace(/\/+$/, "");
+    }
+
+    function isGitHubPagesHost() {
+      return window.location.hostname.endsWith(".github.io");
+    }
+
+    function bingxApiEndpoint(type, params) {
+      const proxyUrl = bingxApiProxyUrl();
+      if (proxyUrl) {
+        const url = new URL(type, proxyUrl + "/");
+        Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
+        return url;
+      }
+
+      if (isGitHubPagesHost() || window.location.protocol === "file:") {
+        throw new Error("尚未設定 BingX API Proxy，GitHub Pages 無法直接抓取 BingX 數據。");
+      }
+
+      const path = type === "price" ? "/.netlify/functions/bingx-price" : "/.netlify/functions/bingx-klines";
+      const url = new URL(path, window.location.origin);
+      Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
+      return url;
     }
 
     function loadTelegramNotifiedSignals() {
@@ -2493,18 +2536,8 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
     }
 
     async function fetchBingxFuturesKlines(interval, limit, symbol = currentSymbol()) {
-      const url = new URL("/.netlify/functions/bingx-klines", window.location.origin);
-      url.searchParams.set("symbol", symbol);
-      url.searchParams.set("interval", interval);
-      url.searchParams.set("limit", String(limit));
-      let response = await fetch(url.toString(), { cache: "no-store" }).catch(() => null);
-      if (!response || !response.ok) {
-        const directUrl = new URL("https://open-api.bingx.com/openApi/swap/v2/quote/klines");
-        directUrl.searchParams.set("symbol", symbol);
-        directUrl.searchParams.set("interval", interval);
-        directUrl.searchParams.set("limit", String(limit));
-        response = await fetch(directUrl.toString(), { cache: "no-store", headers: { Accept: "application/json" } });
-      }
+      const url = bingxApiEndpoint("klines", { symbol, interval, limit });
+      const response = await fetch(url.toString(), { cache: "no-store" });
       if (!response.ok) {
         let detail = "";
         try {
@@ -2520,14 +2553,8 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
     }
 
     async function fetchBingxCurrentPrice(symbol = currentSymbol()) {
-      const url = new URL("/.netlify/functions/bingx-price", window.location.origin);
-      url.searchParams.set("symbol", symbol);
-      let response = await fetch(url.toString(), { cache: "no-store" }).catch(() => null);
-      if (!response || !response.ok) {
-        const directUrl = new URL("https://open-api.bingx.com/openApi/swap/v2/quote/price");
-        directUrl.searchParams.set("symbol", symbol);
-        response = await fetch(directUrl.toString(), { cache: "no-store", headers: { Accept: "application/json" } });
-      }
+      const url = bingxApiEndpoint("price", { symbol });
+      const response = await fetch(url.toString(), { cache: "no-store" });
       if (!response.ok) {
         let detail = "";
         try {
@@ -3983,6 +4010,10 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
     ["telegramBotToken", "telegramChatId"].forEach((id) => {
       document.querySelector("#" + id)?.addEventListener("input", saveTelegramSettings);
     });
+    document.querySelector("#bingxApiProxyUrl")?.addEventListener("input", () => {
+      saveBingxApiProxyUrl();
+      updateMarketDashboard();
+    });
     document.querySelector("#symbolSelect").addEventListener("change", () => {
       saveMarketInputs(activeSymbol);
       localStorage.setItem(symbolStorageKey, currentSymbol());
@@ -4022,6 +4053,7 @@ Momentum Score：${analysis.momentumScore ?? 0}/100
 
     loadLayoutMode();
     loadTelegramSettings();
+    loadBingxApiProxyUrl();
     loadSelectedSymbol();
     loadMarketInputs();
     renderKlineChart();
