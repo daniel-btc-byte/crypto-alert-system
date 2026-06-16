@@ -513,16 +513,21 @@ function scoreAdvancedAnalysis(klines15m, basic) {
     && volumeRatio >= 0.8
   ) {
     signalLevel = "S";
-  } else if (trendAligned && !waitingPullback && plan.rr >= 1.5 && mScore >= 80 && moScore >= 60) {
+  } else if (trendAligned && !waitingPullback && plan.rr >= 1.2 && mScore >= 80 && moScore >= 60) {
     signalLevel = "A";
   } else if (trendAligned && plan.rr >= 0.6 && mScore >= 75 && moScore >= 40) {
     signalLevel = "B";
   }
 
-  const canNotify = ["S", "A", "B"].includes(signalLevel)
-    && !chaseRisk
-    && !plan.stopLossTooSmall
-    && !ma30TooFar;
+  const bNotifyBlockReason = signalLevel !== "B" ? "" :
+    !Number.isFinite(plan.rr) || plan.rr < 0.7 ? `RR too low ${number(plan.rr, 2)}`
+      : mScore < 80 ? "Market too low"
+        : moScore < 70 ? "Momentum too low"
+          : chaseRisk ? "chase risk"
+            : plan.stopLossTooSmall ? "structure too small"
+              : ma30TooFar ? "MA30 deviation too high"
+                : "";
+  const canNotify = ["S", "A"].includes(signalLevel) || (signalLevel === "B" && !bNotifyBlockReason);
   const finalSignal = signalLevel === "S"
     ? "⭐ S級機會"
     : signalLevel === "A"
@@ -577,7 +582,7 @@ function scoreAdvancedAnalysis(klines15m, basic) {
     warnings,
     nonTradeReasons,
     notifyBlockedReason: !canNotify ? (
-      ma30TooFar ? "偏離 MA30 過遠"
+      bNotifyBlockReason || ma30TooFar ? bNotifyBlockReason || "偏離 MA30 過遠"
         : plan.stopLossTooSmall ? "結構太小"
           : chaseRisk ? "追價風險"
             : `${signalLevel}級不推播`
@@ -586,7 +591,7 @@ function scoreAdvancedAnalysis(klines15m, basic) {
 }
 
 function signalKey(analysis) {
-  return `${analysis.symbol}-${analysis.direction}`;
+  return analysis.symbol;
 }
 
 async function shouldNotify(analysis, env) {
@@ -594,30 +599,37 @@ async function shouldNotify(analysis, env) {
 
   const key = signalKey(analysis);
   if (!env.SIGNAL_KV) {
-    return { notify: true, key, reason: "無 KV，允許本次通知" };
+    return { notify: true, key, reason: "new signal" };
   }
 
   const previous = await env.SIGNAL_KV.get(key, { type: "json" });
   const now = Date.now();
-  if (!previous) return { notify: true, key, reason: "新 S/A/B 訊號" };
+  if (!previous) return { notify: true, key, reason: "new signal" };
 
-  const elapsedMinutes = (now - Number(previous.time || 0)) / 60000;
-  const upgraded = signalLevelRank(analysis.signalLevel) > signalLevelRank(previous.level);
-  if (upgraded) return { notify: true, key, reason: "訊號等級提升" };
-  if (elapsedMinutes >= COOLDOWN_MINUTES) return { notify: true, key, reason: "冷卻結束" };
+  const lastLevel = previous.lastNotifyLevel || previous.level || "D";
+  const lastNotifyTime = Number(previous.lastNotifyTime || previous.time || 0);
+  if (signalLevelRank(analysis.signalLevel) > signalLevelRank(lastLevel)) {
+    return { notify: true, key, reason: `signal upgraded ${lastLevel}→${analysis.signalLevel}` };
+  }
 
-  return { notify: false, key, reason: `30 分鐘冷卻中，剩餘 ${Math.ceil(COOLDOWN_MINUTES - elapsedMinutes)} 分鐘` };
+  const elapsedMinutes = (now - lastNotifyTime) / 60000;
+  if (elapsedMinutes >= COOLDOWN_MINUTES) return { notify: true, key, reason: "new signal" };
+
+  return { notify: false, key, reason: "cooldown" };
 }
 
 async function rememberNotification(analysis, env, decision) {
   if (!env.SIGNAL_KV || !decision.key) return;
+  const notifyTime = Date.now();
   await env.SIGNAL_KV.put(decision.key, JSON.stringify({
     symbol: analysis.symbol,
     direction: analysis.direction,
     level: analysis.signalLevel,
+    lastNotifyLevel: analysis.signalLevel,
     price: analysis.price,
     finalSignal: analysis.finalSignal,
-    time: Date.now()
+    time: notifyTime,
+    lastNotifyTime: notifyTime
   }), { expirationTtl: COOLDOWN_MINUTES * 60 + 300 });
 }
 
@@ -626,32 +638,22 @@ function signalLevelRank(level) {
 }
 
 function telegramText(analysis) {
-  const icon = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🟢" : "🟡";
-  const bLevelNote = analysis.signalLevel === "B" ? "\n小倉觀察，不建議追價" : "";
-  const noTradeReasons = Array.isArray(analysis.nonTradeReasons) && analysis.nonTradeReasons.length
-    ? analysis.nonTradeReasons.map((item) => `- ${item}`).join("\n")
-    : "-";
-  return `${icon} ${analysis.signalLevel}級${analysis.sideLabel}
-
-${analysis.finalSignal}${bLevelNote}
-
-Symbol：${analysis.symbol}
-方向：${analysis.sideLabel}
-現價：${priceNumber(analysis.price)}
-建議進場區間：${analysis.entryZone}
-止損：${Number.isFinite(analysis.stop) ? priceNumber(analysis.stop) : "-"}
+  const icon = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🔥" : "🟡";
+  const reminder = analysis.signalLevel === "S"
+    ? "高品質訊號，仍需自行確認K線。"
+    : analysis.signalLevel === "A"
+      ? "可觀察進場，不追價。"
+      : "等回踩或收線確認。";
+  const bLevelNote = analysis.signalLevel === "B" ? "小倉觀察，不建議追價\n" : "";
+  return `${icon} ${analysis.signalLevel}級 ${analysis.symbol} ${analysis.sideLabel}
+${bLevelNote}現價：${priceNumber(analysis.price)}
+Entry：${analysis.entryZone}
+SL：${Number.isFinite(analysis.stop) ? priceNumber(analysis.stop) : "-"}
 TP1：${Number.isFinite(analysis.tp1) ? priceNumber(analysis.tp1) : "-"}
 TP2：${Number.isFinite(analysis.tp2) ? priceNumber(analysis.tp2) : "-"}
 RR：${Number.isFinite(analysis.rr) ? number(analysis.rr, 2) : "-"}
-Market Score：${analysis.marketScore}/100
-Momentum Score：${analysis.momentumScore}/100
-RSI：${number(analysis.rsi, 1)}
-Volume Ratio：${number(analysis.volumeRatio, 2)}x
-ATR%：${number(analysis.atrPercent, 3)}%
-不交易原因：
-${noTradeReasons}
-主要理由：${analysis.warnings.length ? analysis.warnings.join("｜") : "S/A/B 條件符合，允許推播"}
-時間：${new Date().toLocaleString("zh-TW", { hour12: false, timeZone: "Asia/Taipei" })}`;
+Market：${analysis.marketScore} / Momentum：${analysis.momentumScore}
+提醒：${reminder}`;
 }
 
 async function sendTelegram(text, env) {
@@ -703,7 +705,7 @@ async function runScheduledScan(env) {
       const decision = await shouldNotify(analysis, env);
       const sideText = analysis.direction === "long" ? "做多" : analysis.direction === "short" ? "做空" : "";
       const finalText = analysis.signalLevel === "D" ? "不交易" : `${analysis.signalLevel}級${sideText}`;
-      console.log(`${symbol} ${finalText} Market ${analysis.marketScore} Momentum ${analysis.momentumScore} RR ${number(analysis.rr, 2)} notify=${decision.notify ? "yes" : "no"}`);
+      console.log(`${symbol} ${finalText} Market ${analysis.marketScore} Momentum ${analysis.momentumScore} RR ${number(analysis.rr, 2)} notify=${decision.notify ? "yes" : "no"} reason=${decision.reason}`);
 
       if (decision.notify) {
         try {
