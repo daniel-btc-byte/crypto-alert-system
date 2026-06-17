@@ -695,7 +695,7 @@ function buildSignalRecord(analysis) {
 }
 
 function resolveSignalRecord(record, klines15m) {
-  if (!record || record.status !== "OPEN") return record;
+  if (!record || (record.status !== "OPEN" && record.result !== "OPEN")) return record;
   const createdAtBarTime = Number(record.createdAtBarTime);
   const bars = record.trackingPolicy === "next_bar" && Number.isFinite(createdAtBarTime)
     ? klines15m.filter((item) => Number(item.time) > createdAtBarTime)
@@ -719,19 +719,17 @@ function resolveSignalRecord(record, klines15m) {
 }
 
 function updateOpenSignalRecords(records, symbol, klines15m) {
-  return records.map((record) => record.symbol === symbol && record.status === "OPEN"
+  return records.map((record) => record.symbol === symbol && (record.status === "OPEN" || record.result === "OPEN")
     ? resolveSignalRecord(record, klines15m)
     : record);
 }
 
 function recordSignalIfEligible(records, analysis) {
   if (!isValidBacktestSignal(analysis) || !hasValidTradePlan(analysis)) return records;
-  const now = Date.now();
-  const matchingOpenIndex = records.findIndex((record) => record.status === "OPEN"
+  const matchingOpenIndex = records.findIndex((record) => (record.status === "OPEN" || record.result === "OPEN")
     && record.symbol === analysis.symbol
     && record.direction === analysis.direction
-    && record.setupType === analysis.setupType
-    && now - Number(record.createdAt) < COOLDOWN_MINUTES * 60000);
+    && record.setupType === analysis.setupType);
   if (matchingOpenIndex >= 0) {
     const current = records[matchingOpenIndex];
     if (signalLevelRank(analysis.signalLevel) > signalLevelRank(current.signalLevel)) {

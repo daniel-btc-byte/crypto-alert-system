@@ -806,7 +806,7 @@ function buildSignalRecord(analysis) {
 }
 
 function resolveSignalRecord(record, klines15m) {
-  if (!record || record.status !== "OPEN") return record;
+  if (!record || (record.status !== "OPEN" && record.result !== "OPEN")) return record;
   const createdAtBarTime = Number(record.createdAtBarTime);
   const bars = record.trackingPolicy === "next_bar" && Number.isFinite(createdAtBarTime)
     ? klines15m.filter((item) => Number(item.time) > createdAtBarTime)
@@ -835,7 +835,7 @@ async function updateOpenSignalRecords(env, symbol, klines15m) {
   if (!env.SIGNAL_KV) return [];
   const records = await recentSignalRecords(env);
   const updated = [];
-  for (const record of records.filter((item) => item.symbol === symbol && item.status === "OPEN")) {
+  for (const record of records.filter((item) => item.symbol === symbol && (item.status === "OPEN" || item.result === "OPEN"))) {
     const next = resolveSignalRecord(record, klines15m);
     if (next !== record) {
       await writeSignalRecord(env, next);
@@ -849,12 +849,10 @@ async function recordSignalIfEligible(env, analysis) {
   if (!env.SIGNAL_KV || !isValidBacktestSignal(analysis) || !hasValidTradePlan(analysis)) return null;
   const index = await readSignalIndex(env);
   const records = await recentSignalRecords(env);
-  const now = Date.now();
-  const matchingOpen = records.find((record) => record.status === "OPEN"
+  const matchingOpen = records.find((record) => (record.status === "OPEN" || record.result === "OPEN")
     && record.symbol === analysis.symbol
     && record.direction === analysis.direction
-    && record.setupType === analysis.setupType
-    && now - Number(record.createdAt) < COOLDOWN_MINUTES * 60000);
+    && record.setupType === analysis.setupType);
 
   if (matchingOpen) {
     if (signalLevelRank(analysis.signalLevel) > signalLevelRank(matchingOpen.signalLevel)) {

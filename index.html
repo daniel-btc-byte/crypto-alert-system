@@ -1850,46 +1850,63 @@
       return candles;
     }
 
+    function marketUpdateError(type, message, cause = null) {
+      const error = new Error(message);
+      error.marketUpdateType = type;
+      if (cause) error.cause = cause;
+      return error;
+    }
+
     async function fetchBingxFuturesKlines(interval, limit, symbol = currentSymbol()) {
-      const url = bingxApiEndpoint("klines", { symbol, interval, limit });
-      const response = await fetch(url.toString(), { cache: "no-store" });
-      if (!response.ok) {
-        let detail = "";
-        try {
-          const errorPayload = await response.json();
-          detail = errorPayload.error ? `：${errorPayload.error}` : "";
-        } catch {
-          detail = "";
+      try {
+        const url = bingxApiEndpoint("klines", { symbol, interval, limit });
+        const response = await fetch(url.toString(), { cache: "no-store" });
+        if (!response.ok) {
+          let detail = "";
+          try {
+            const errorPayload = await response.json();
+            detail = errorPayload.error ? `：${errorPayload.error}` : "";
+          } catch {
+            detail = "";
+          }
+          throw marketUpdateError("fetch", `BingX API 連線失敗：K 線 HTTP ${response.status}${detail}`);
         }
-        throw new Error(`BingX K 線 Function HTTP ${response.status}${detail}`);
+        const payload = await response.json();
+        return extractKlines(payload);
+      } catch (error) {
+        if (error.marketUpdateType) throw error;
+        throw marketUpdateError("fetch", `BingX API 連線失敗：${error.message}`, error);
       }
-      const payload = await response.json();
-      return extractKlines(payload);
     }
 
     async function fetchBingxCurrentPrice(symbol = currentSymbol()) {
-      const url = bingxApiEndpoint("price", { symbol });
-      const response = await fetch(url.toString(), { cache: "no-store" });
-      if (!response.ok) {
-        let detail = "";
-        try {
-          const errorPayload = await response.json();
-          detail = errorPayload.error ? `：${errorPayload.error}` : "";
-        } catch {
-          detail = "";
+      try {
+        const url = bingxApiEndpoint("price", { symbol });
+        const response = await fetch(url.toString(), { cache: "no-store" });
+        if (!response.ok) {
+          let detail = "";
+          try {
+            const errorPayload = await response.json();
+            detail = errorPayload.error ? `：${errorPayload.error}` : "";
+          } catch {
+            detail = "";
+          }
+          throw marketUpdateError("fetch", `BingX API 連線失敗：現價 HTTP ${response.status}${detail}`);
         }
-        throw new Error(`BingX Proxy HTTP ${response.status}${detail}`);
+        const payload = await response.json();
+        const price = Number(payload.price ?? payload.data?.price ?? payload.data?.lastPrice ?? payload.data?.close);
+        if (!Number.isFinite(price)) throw new Error("本地 BingX Proxy 回傳價格格式不符合預期。");
+        return {
+          price,
+          source: payload.displaySource || "? BingX Futures",
+          exchange: payload.exchange || "BingX",
+          symbol: payload.symbol || symbol,
+          originalSymbol: payload.originalSymbol || tvSymbol(symbol)
+        };
+      } catch (error) {
+        if (error.marketUpdateType) throw error;
+        throw marketUpdateError("fetch", `BingX API 連線失敗：${error.message}`, error);
       }
-      const payload = await response.json();
-      const price = Number(payload.price ?? payload.data?.price ?? payload.data?.lastPrice ?? payload.data?.close);
-      if (!Number.isFinite(price)) throw new Error("本地 BingX Proxy 回傳價格格式不符合預期。");
-      return {
-        price,
-        source: payload.displaySource || "? BingX Futures",
-        exchange: payload.exchange || "BingX",
-        symbol: payload.symbol || symbol,
-        originalSymbol: payload.originalSymbol || tvSymbol(symbol)
-      };
     }
 
     function signalStatsEndpoint() {
@@ -2588,43 +2605,78 @@
         document.querySelector("#klineSource").value = "🟢 BingX Futures Kline";
         document.querySelector("#symbolDebug").textContent = "使用交易所：BingX｜使用 symbol：" + (bingxPriceResult.symbol || symbol) + "｜原始顯示 symbol：" + (bingxPriceResult.originalSymbol || tvSymbol(symbol));
 
-        latestAdvancedAnalysis = buildAdvancedAnalysis(klines15m, {
-          price: fieldsToUpdate.marketPrice,
-          ma4h: fieldsToUpdate.ma4h30,
-          ma4h200: fieldsToUpdate.ma4h200,
-          ma15m30: fieldsToUpdate.ma15m30,
-          ma5: fieldsToUpdate.ma15m5,
-          ma10: fieldsToUpdate.ma15m10,
-          ma15m30Prev: average(prev15m.slice(-30).map((item) => item.close)),
-          prevClose: prev15m.at(-1)?.close,
-          prevMa10: average(prev15m.slice(-10).map((item) => item.close)),
-          recentHigh: fieldsToUpdate.recentHigh,
-          recentLow: fieldsToUpdate.recentLow,
-          previousRecentHigh,
-          previousRecentLow,
-          atr: atr14(klines15m),
-          symbol,
-          notNearHigh: fieldsToUpdate.marketPrice < fieldsToUpdate.recentHigh * (1 - (marketValue("chaseBufferPercent") / 100)),
-          notNearLow: fieldsToUpdate.marketPrice > fieldsToUpdate.recentLow * (1 + (marketValue("chaseBufferPercent") / 100))
-        });
+        try {
+          latestAdvancedAnalysis = buildAdvancedAnalysis(klines15m, {
+            price: fieldsToUpdate.marketPrice,
+            ma4h: fieldsToUpdate.ma4h30,
+            ma4h200: fieldsToUpdate.ma4h200,
+            ma15m30: fieldsToUpdate.ma15m30,
+            ma5: fieldsToUpdate.ma15m5,
+            ma10: fieldsToUpdate.ma15m10,
+            ma15m30Prev: average(prev15m.slice(-30).map((item) => item.close)),
+            prevClose: prev15m.at(-1)?.close,
+            prevMa10: average(prev15m.slice(-10).map((item) => item.close)),
+            recentHigh: fieldsToUpdate.recentHigh,
+            recentLow: fieldsToUpdate.recentLow,
+            previousRecentHigh,
+            previousRecentLow,
+            atr: atr14(klines15m),
+            symbol,
+            notNearHigh: fieldsToUpdate.marketPrice < fieldsToUpdate.recentHigh * (1 - (marketValue("chaseBufferPercent") / 100)),
+            notNearLow: fieldsToUpdate.marketPrice > fieldsToUpdate.recentLow * (1 + (marketValue("chaseBufferPercent") / 100))
+          });
+        } catch (error) {
+          latestAdvancedAnalysis = null;
+          throw marketUpdateError("analysis", `前端分析錯誤：${error.message}`, error);
+        }
 
-        renderKlineChart(klines15m);
-        renderAdvancedAnalysis();
-        updateMarketDashboard();
+        try {
+          renderKlineChart(klines15m);
+        } catch (error) {
+          throw marketUpdateError("chart", `K線圖載入失敗：${error.message}`, error);
+        }
+
+        try {
+          renderAdvancedAnalysis();
+          updateMarketDashboard();
+        } catch (error) {
+          latestAdvancedAnalysis = null;
+          throw marketUpdateError("analysis", `前端分析錯誤：${error.message}`, error);
+        }
         setMarketStatus("最後更新：" + new Date().toLocaleString("zh-TW", { hour12: false }));
       } catch (error) {
+        const errorType = error.marketUpdateType || "analysis";
+        const errorTitle = errorType === "fetch"
+          ? "BingX API 連線失敗"
+          : errorType === "chart"
+            ? "K線圖載入失敗"
+            : "前端分析錯誤";
         latestAdvancedAnalysis = null;
-        renderKlineChart([]);
-        ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "recentHigh", "recentLow"].forEach((id) => {
-          const input = document.querySelector("#" + id);
-          if (input) input.value = "";
-        });
-        renderAdvancedAnalysis();
-        document.querySelector("#priceSource").value = "BingX 數據取得失敗";
-        document.querySelector("#klineSource").value = "BingX 數據取得失敗";
+        if (errorType === "fetch") {
+          try {
+            renderKlineChart([]);
+          } catch {
+            // Ignore chart cleanup failures so the original API error remains visible.
+          }
+          ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "recentHigh", "recentLow"].forEach((id) => {
+            const input = document.querySelector("#" + id);
+            if (input) input.value = "";
+          });
+        }
+        try {
+          renderAdvancedAnalysis();
+        } catch {
+          // Keep the visible status focused on the original failure category.
+        }
+        document.querySelector("#priceSource").value = errorType === "fetch" ? "BingX API 連線失敗" : errorTitle;
+        document.querySelector("#klineSource").value = errorType === "chart" ? "K線圖載入失敗" : errorTitle;
         document.querySelector("#symbolDebug").textContent = "使用交易所：BingX｜使用 symbol：" + currentSymbol() + "｜原始顯示 symbol：" + tvSymbol(currentSymbol());
-        updateMarketDashboard();
-        setMarketStatus("BingX 數據取得失敗，暫停分析：" + error.message, true);
+        try {
+          updateMarketDashboard();
+        } catch {
+          // Avoid replacing a categorized error with a secondary render failure.
+        }
+        setMarketStatus(`${errorTitle}：${error.message.replace(new RegExp("^" + errorTitle + "：?"), "")}`, true);
       } finally {
         isMarketUpdating = false;
         buttons.forEach((button) => {
