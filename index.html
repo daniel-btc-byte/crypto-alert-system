@@ -486,6 +486,74 @@
       font-weight: 500;
     }
 
+    .signal-stats-panel {
+      padding: 16px;
+      margin: 0 0 40px;
+    }
+
+    .signal-stats-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .signal-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .signal-stat-card {
+      min-height: 86px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      background: var(--panel-soft);
+    }
+
+    .signal-stat-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .signal-stat-card strong {
+      display: block;
+      font-size: 20px;
+      overflow-wrap: anywhere;
+    }
+
+    .signal-records-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    .signal-records-table {
+      width: 100%;
+      min-width: 920px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .signal-records-table th,
+    .signal-records-table td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .signal-records-table th {
+      color: var(--muted);
+      font-weight: 600;
+      background: var(--panel-strong);
+    }
+
     .score-bar {
       height: 8px;
       border-radius: 999px;
@@ -1012,6 +1080,14 @@
         grid-template-columns: 1fr;
       }
 
+      .signal-stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .signal-stats-head {
+        flex-direction: column;
+      }
+
       .analysis-grid,
       body.layout-auto .analysis-grid,
       body.layout-portrait .analysis-grid {
@@ -1437,6 +1513,44 @@
             <div class="condition-list" id="shortConditions"></div>
           </div>
         </div>
+    </section>
+
+    <section class="panel signal-stats-panel" aria-label="訊號統計 / 回測追蹤">
+      <div class="signal-stats-head">
+        <div>
+          <h2>訊號統計 / 回測追蹤</h2>
+          <div class="note-line" id="signalStatsStatus">尚未取得統計資料</div>
+          <div class="note-line">回測從下一根 15m K 開始統計，訊號當根 K 不列入。</div>
+        </div>
+        <button class="btn" id="refreshSignalStatsBtn" type="button">更新統計</button>
+      </div>
+      <div class="signal-stats-grid">
+        <div class="signal-stat-card"><span>總訊號</span><strong id="signalTotal">-</strong></div>
+        <div class="signal-stat-card"><span>勝率</span><strong id="signalWinRate">-</strong></div>
+        <div class="signal-stat-card"><span>S / A / B 勝率</span><strong id="signalGradeRates">-</strong></div>
+        <div class="signal-stat-card"><span>多單 / 空單勝率</span><strong id="signalSideRates">-</strong></div>
+        <div class="signal-stat-card"><span>Pullback / Breakout</span><strong id="signalSetupRates">-</strong></div>
+        <div class="signal-stat-card"><span>OPEN 訊號</span><strong id="signalOpenCount">-</strong></div>
+      </div>
+      <div class="signal-records-wrap">
+        <table class="signal-records-table">
+          <thead>
+            <tr>
+              <th>時間</th>
+              <th>幣種</th>
+              <th>方向</th>
+              <th>等級</th>
+              <th>setupType</th>
+              <th>Entry</th>
+              <th>SL</th>
+              <th>TP1</th>
+              <th>TP2</th>
+              <th>結果</th>
+            </tr>
+          </thead>
+          <tbody id="signalRecords"></tbody>
+        </table>
+      </div>
     </section>
 
     <div class="section-title">
@@ -2081,10 +2195,11 @@ ${analysis.finalSignal}${bLevelNote}
 止損：${Number.isFinite(metrics.stop) ? priceNumber(metrics.stop) : "-"}
 TP1：${Number.isFinite(metrics.tp1) ? priceNumber(metrics.tp1) : "-"}
 TP2：${Number.isFinite(metrics.tp2) ? priceNumber(metrics.tp2) : "-"}
-RR：${Number.isFinite(metrics.rr) ? number(metrics.rr, 2) : "-"}
+RR(TP1)：${Number.isFinite(analysis.rrDisplay) ? number(analysis.rrDisplay, 1) + "R" : "-"}
+RR(TP2)：${Number.isFinite(analysis.rrStretch) ? number(analysis.rrStretch, 1) + "R" : "-"}
 Market Score：${analysis.marketScore}/100
 Entry Quality：${analysis.entryScore}/100
-Momentum Score：${analysis.momentumScore ?? 0}/100
+Momentum Score：${analysis.momentumScore ?? 0}/20
 不交易原因：
 ${noTradeReasons}
 是否通知 Telegram：是
@@ -2598,6 +2713,71 @@ ${noTradeReasons}
       };
     }
 
+    function signalStatsEndpoint() {
+      const proxyUrl = bingxApiProxyUrl();
+      if (proxyUrl) return new URL("signals/stats", proxyUrl + "/");
+      if (isGitHubPagesHost() || window.location.protocol === "file:") return null;
+      return new URL("/signals/stats", window.location.origin);
+    }
+
+    function percentText(value) {
+      return Number.isFinite(value) ? `${number(value, 1)}%` : "-";
+    }
+
+    function bucketRate(bucket) {
+      return bucket ? percentText(bucket.winRate) : "-";
+    }
+
+    function signalOutcomeLabel(record) {
+      if (record.status === "OPEN") return "OPEN";
+      return record.outcome || "-";
+    }
+
+    async function fetchSignalStats() {
+      const url = signalStatsEndpoint();
+      if (!url) throw new Error("尚未設定 BingX API Proxy，無法讀取 Worker 訊號統計。");
+      const response = await fetch(url.toString(), { cache: "no-store" });
+      if (!response.ok) throw new Error(`訊號統計 HTTP ${response.status}`);
+      return response.json();
+    }
+
+    function renderSignalStats(payload) {
+      const stats = payload?.stats || {};
+      const recentSignals = Array.isArray(payload?.recentSignals) ? payload.recentSignals : [];
+      document.querySelector("#signalTotal").textContent = stats.totalSignals ?? 0;
+      document.querySelector("#signalWinRate").textContent = percentText(stats.overallWinRate);
+      document.querySelector("#signalGradeRates").innerHTML = `S ${bucketRate(stats.byLevel?.S)}<br>A ${bucketRate(stats.byLevel?.A)}<br>B ${bucketRate(stats.byLevel?.B)}`;
+      document.querySelector("#signalSideRates").innerHTML = `多 ${bucketRate(stats.byDirection?.long)}<br>空 ${bucketRate(stats.byDirection?.short)}`;
+      document.querySelector("#signalSetupRates").innerHTML = `pullback ${bucketRate(stats.bySetupType?.pullback)}<br>breakout ${bucketRate(stats.bySetupType?.breakout)}`;
+      document.querySelector("#signalOpenCount").textContent = stats.openSignals ?? 0;
+      document.querySelector("#signalRecords").innerHTML = recentSignals.length
+        ? recentSignals.map((record) => `
+          <tr>
+            <td>${record.createdAt ? new Date(record.createdAt).toLocaleString("zh-TW", { hour12: false }) : "-"}</td>
+            <td>${record.symbol || "-"}</td>
+            <td>${record.direction === "long" ? "做多" : record.direction === "short" ? "做空" : "-"}</td>
+            <td>${record.signalLevel || "-"}</td>
+            <td>${record.setupType || "-"}</td>
+            <td>${priceNumber(Number(record.entry))}</td>
+            <td>${priceNumber(Number(record.stop))}</td>
+            <td>${priceNumber(Number(record.tp1))}</td>
+            <td>${priceNumber(Number(record.tp2))}</td>
+            <td>${signalOutcomeLabel(record)}</td>
+          </tr>
+        `).join("")
+        : `<tr><td colspan="10">尚無訊號紀錄</td></tr>`;
+      document.querySelector("#signalStatsStatus").textContent = `已更新：${new Date().toLocaleString("zh-TW", { hour12: false })}`;
+    }
+
+    async function refreshSignalStats() {
+      try {
+        renderSignalStats(await fetchSignalStats());
+      } catch (error) {
+        document.querySelector("#signalStatsStatus").textContent = error.message || "訊號統計暫時無法讀取";
+        document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="10">訊號統計暫時無法讀取</td></tr>`;
+      }
+    }
+
     function atr14(klines) {
       if (klines.length < 15) return null;
       const trueRanges = [];
@@ -2783,7 +2963,231 @@ ${noTradeReasons}
         && (basic.price > previousHigh * (1 + breakoutThreshold) || basic.price < previousLow * (1 - breakoutThreshold));
       const consolidationTooLong = last8.length >= 8 && Number.isFinite(rangePercent) && rangePercent < 0.45 && !brokeRecentRange;
 
-      return scoreAdvancedAnalysis({ volumeRatio, volumeStatus, macd, atr, rsi, priceSlope, rangePercent, consolidationTooLong }, basic);
+      return scoreAdvancedAnalysisV2({ volumeRatio, volumeStatus, macd, atr, rsi, priceSlope, rangePercent, consolidationTooLong }, basic);
+    }
+
+    function clampScore(value, max = 100) {
+      return Math.min(max, Math.max(0, Math.round(value)));
+    }
+
+    function distanceToPercent(a, b) {
+      if (!Number.isFinite(a) || !Number.isFinite(b) || a <= 0) return null;
+      return Math.abs(a - b) / a * 100;
+    }
+
+    function riskQualityScoreV2(stopLossPercent, maxStopLossPercent) {
+      if (!Number.isFinite(stopLossPercent) || !Number.isFinite(maxStopLossPercent) || maxStopLossPercent <= 0) return 0;
+      if (stopLossPercent <= maxStopLossPercent * 0.65) return 15;
+      if (stopLossPercent <= maxStopLossPercent * 0.85) return 12;
+      if (stopLossPercent <= maxStopLossPercent) return 8;
+      return 0;
+    }
+
+    function getMaxStopLossPercent(symbol = currentSymbol()) {
+      const base = symbolBase(symbol);
+      if (base === "BTC") return 1.2;
+      if (base === "ETH") return 1.5;
+      if (base === "SOL") return 2.2;
+      if (base === "XRP") return 2.5;
+      if (base === "DOGE") return 2.5;
+      return 2.5;
+    }
+
+    function trendEnvironmentV2(basic) {
+      const longChecks = [
+        basic.price > basic.ma4h200,
+        basic.ma4h > basic.ma4h200,
+        basic.ma15m30 > basic.ma15m30Prev,
+        basic.price > basic.ma15m30 || (basic.price > basic.ma10 && basic.prevClose <= basic.prevMa10)
+      ];
+      const shortChecks = [
+        basic.price < basic.ma4h200,
+        basic.ma4h < basic.ma4h200,
+        basic.ma15m30 < basic.ma15m30Prev,
+        basic.price < basic.ma15m30 || (basic.price < basic.ma10 && basic.prevClose >= basic.prevMa10)
+      ];
+      const bullScore = longChecks.filter(Boolean).length;
+      const bearScore = shortChecks.filter(Boolean).length;
+      const direction = bullScore >= 2 && bullScore > bearScore ? "long" : bearScore >= 2 && bearScore > bullScore ? "short" : null;
+      return { direction, bullScore, bearScore };
+    }
+
+    function dynamicTradePlanMetricsV2(side, basic) {
+      const rrToTp1 = 1.5;
+      const rrToTp2 = 2.5;
+      if (!side || !Number.isFinite(basic.price)) return { rr: null, rrToTp1: null, rrToTp2: null, rrDisplay: null, rrStretch: null };
+      const entry = basic.price;
+      const minStopLossPercent = getMinStopLossPercent(basic.symbol || currentSymbol());
+      const maxStopLossPercent = getMaxStopLossPercent(basic.symbol || currentSymbol());
+      const atrRisk = Number.isFinite(basic.atr) ? basic.atr * 0.6 : 0;
+      const minRisk = Math.max(atrRisk, entry * minStopLossPercent / 100);
+      if (side === "long") {
+        const structureStop = Math.min(Number.isFinite(basic.recentLow) ? basic.recentLow : entry, Number.isFinite(basic.ma15m30) ? basic.ma15m30 : entry) * 0.999;
+        const stop = Math.min(structureStop, entry - minRisk);
+        const risk = entry - stop;
+        const tp1 = entry + risk * rrToTp1;
+        const tp2 = entry + risk * rrToTp2;
+        const stopLossPercent = stopLossDistancePercent(entry, stop);
+        const rr = risk > 0 ? rrToTp1 : null;
+        return { entry, stop, tp1, tp2, rr, rrToTp1, rrToTp2, rrDisplay: rrToTp1, rrStretch: rrToTp2, risk, stopLossPercent, minStopLossPercent, maxStopLossPercent, stopLossTooSmall: false, stopLossTooLarge: Number.isFinite(stopLossPercent) && stopLossPercent > maxStopLossPercent };
+      }
+      const structureStop = Math.max(Number.isFinite(basic.recentHigh) ? basic.recentHigh : entry, Number.isFinite(basic.ma15m30) ? basic.ma15m30 : entry) * 1.001;
+      const stop = Math.max(structureStop, entry + minRisk);
+      const risk = stop - entry;
+      const tp1 = entry - risk * rrToTp1;
+      const tp2 = entry - risk * rrToTp2;
+      const stopLossPercent = stopLossDistancePercent(entry, stop);
+      const rr = risk > 0 ? rrToTp1 : null;
+      return { entry, stop, tp1, tp2, rr, rrToTp1, rrToTp2, rrDisplay: rrToTp1, rrStretch: rrToTp2, risk, stopLossPercent, minStopLossPercent, maxStopLossPercent, stopLossTooSmall: false, stopLossTooLarge: Number.isFinite(stopLossPercent) && stopLossPercent > maxStopLossPercent };
+    }
+
+    function setupContextV2(direction, basic, macd, rsi, volumeRatio, atrInfo, ma30TooFar) {
+      if (!direction) return { setupType: "none", nearMa: false, breakoutValid: false, pullbackValid: false, macdDirectional: false, histogramStrength: false };
+      const isLong = direction === "long";
+      const nearThreshold = Math.max(0.003, Number.isFinite(basic.atr) && basic.price > 0 ? basic.atr / basic.price * 0.8 : 0.003);
+      const nearMa10 = Number.isFinite(basic.ma10) && distanceToPercent(basic.price, basic.ma10) / 100 <= nearThreshold;
+      const nearMa30 = Number.isFinite(basic.ma15m30) && distanceToPercent(basic.price, basic.ma15m30) / 100 <= nearThreshold;
+      const nearMa = nearMa10 || nearMa30;
+      const macdDirectional = isLong ? macd.crossType === "golden" : macd.crossType === "death";
+      const histogramStrength = isLong ? macd.histogramGrowing || macd.histogramNearBullFlip : macd.histogramFalling || macd.histogramNearBearFlip;
+      const pullbackValid = nearMa && (isLong ? basic.ma5 > basic.ma10 || histogramStrength : basic.ma5 < basic.ma10 || histogramStrength) && (isLong ? rsi >= 45 && rsi <= 72 : rsi >= 28 && rsi <= 55) && volumeRatio >= 0.8;
+      const breakoutLevel = isLong ? basic.previousRecentHigh : basic.previousRecentLow;
+      const breakoutMove = Number.isFinite(breakoutLevel) && breakoutLevel > 0 ? isLong ? (basic.price - breakoutLevel) / breakoutLevel * 100 : (breakoutLevel - basic.price) / breakoutLevel * 100 : null;
+      const breakoutValid = Number.isFinite(breakoutMove) && breakoutMove >= 0.1 && volumeRatio >= 1.2 && (macdDirectional || histogramStrength) && !ma30TooFar;
+      const setupType = breakoutValid ? "breakout" : pullbackValid ? "pullback" : "none";
+      return { setupType, nearMa, breakoutValid, pullbackValid, breakoutMove, macdDirectional, histogramStrength };
+    }
+
+    function scoreAdvancedAnalysisV2(analysis, basic) {
+      const { volumeRatio, volumeStatus, macd, atr, rsi, consolidationTooLong = false } = analysis;
+      const ma200 = ma200Context(basic.price, basic.ma4h200);
+      const atrInfo = atrState(atr, basic.price);
+      const cooldown = getCooldownState();
+      const ma30Deviation = ma30DeviationContext(basic.price, basic.ma15m30, basic.symbol || currentSymbol());
+      const env = trendEnvironmentV2(basic);
+      const direction = env.direction;
+      const setup = setupContextV2(direction, { ...basic, atr }, macd, rsi, volumeRatio, atrInfo, ma30Deviation.overLimit);
+      const planMetrics = dynamicTradePlanMetricsV2(direction, { ...basic, atr });
+      const isLong = direction === "long";
+      let trendScore = 0;
+      if (direction) {
+        if (isLong ? basic.price > basic.ma4h200 : basic.price < basic.ma4h200) trendScore += 15;
+        if (isLong ? basic.ma4h > basic.ma4h200 : basic.ma4h < basic.ma4h200) trendScore += 10;
+        if (isLong ? basic.ma15m30 > basic.ma15m30Prev : basic.ma15m30 < basic.ma15m30Prev) trendScore += 5;
+      }
+      let structureScore = 0;
+      if (direction) {
+        if (isLong ? basic.ma5 > basic.ma10 : basic.ma5 < basic.ma10) structureScore += 8;
+        if (isLong ? basic.price > basic.ma10 : basic.price < basic.ma10) structureScore += 6;
+        if (setup.breakoutValid || setup.pullbackValid) structureScore += 6;
+      }
+      let momentumScore = 0;
+      if (direction) {
+        if (setup.macdDirectional) momentumScore += 8;
+        if (setup.histogramStrength) momentumScore += 5;
+        if (isLong ? rsi >= 45 && rsi <= 72 : rsi >= 28 && rsi <= 55) momentumScore += 4;
+        if (volumeRatio >= 0.8) momentumScore += 3;
+        if (setup.setupType === "breakout" && volumeRatio >= 1.2) momentumScore += 3;
+      }
+      momentumScore = Math.min(20, momentumScore);
+      let entryScore = 0;
+      const chaseRisk = direction === "long" ? !basic.notNearHigh : direction === "short" ? !basic.notNearLow : false;
+      if (direction && setup.setupType === "pullback") {
+        if (setup.nearMa) entryScore += 8;
+        if (!(chaseRisk && volumeRatio < 1.2)) entryScore += 5;
+        if (atrInfo.normal) entryScore += 2;
+      } else if (direction && setup.setupType === "breakout") {
+        if (volumeRatio >= 1.2) entryScore += 8;
+        if (!ma30Deviation.overLimit) entryScore += 5;
+        if (atrInfo.normal) entryScore += 2;
+      }
+      const rrPart = riskQualityScoreV2(planMetrics.stopLossPercent, planMetrics.maxStopLossPercent);
+      const hardBlockReasons = [];
+      if (!direction) hardBlockReasons.push("direction unclear");
+      if (!Number.isFinite(planMetrics.stopLossPercent)) hardBlockReasons.push("stop distance unavailable");
+      if (volumeRatio < 0.25) hardBlockReasons.push("volume too low");
+      if (direction === "long" && rsi > 88) hardBlockReasons.push("RSI overheated");
+      if (direction === "short" && rsi < 12) hardBlockReasons.push("RSI oversold");
+      if (atrInfo.high && atrInfo.percent > 1.8) hardBlockReasons.push("ATR extremely high");
+      if (planMetrics.stopLossTooLarge) hardBlockReasons.push(`stop too wide ${number(planMetrics.stopLossPercent, 2)}%`);
+      const hardBlocked = hardBlockReasons.length > 0;
+      const totalScore = clampScore(trendScore + structureScore + momentumScore + entryScore + rrPart);
+      let signalLevel = "D";
+      if (!hardBlocked && totalScore >= 85 && trendScore >= 25 && entryScore >= 10 && momentumScore >= 15 && setup.setupType !== "none" && volumeRatio >= 0.9 && planMetrics.stopLossPercent <= planMetrics.maxStopLossPercent * 0.85) signalLevel = "S";
+      else if (!hardBlocked && totalScore >= 72 && trendScore >= 20 && momentumScore >= 12 && setup.setupType !== "none" && planMetrics.stopLossPercent <= planMetrics.maxStopLossPercent) signalLevel = "A";
+      else if (!hardBlocked && totalScore >= 60) signalLevel = "B";
+      const warnings = [];
+      if (ma30Deviation.overLimit) warnings.push(`MA30 deviation high ${number(ma30Deviation.percent, 2)}%`);
+      if (chaseRisk && setup.setupType !== "breakout") warnings.push("chase risk, wait for better entry");
+      if (planMetrics.stopLossTooLarge) warnings.push(`stop distance high ${number(planMetrics.stopLossPercent, 2)}%`);
+      if (setup.setupType === "none") warnings.push("setup not confirmed");
+      if (volumeRatio < 0.8) warnings.push(`volume weak ${number(volumeRatio, 2)}x`);
+      const canNotify = signalLevel === "S" || signalLevel === "A" || (signalLevel === "B" && totalScore >= 65 && planMetrics.rrDisplay >= 1.1);
+      const finalSignal = signalLevel === "D" ? "不交易" : `${signalLevel}級${direction === "long" ? "做多" : "做空"}`;
+      const macdResult = { ...macd, label: `${macd.status} + ${macd.histogramStatus}` };
+      return {
+        ...analysis,
+        atr,
+        atrInfo,
+        rsi,
+        rsiStatus: rsiState(rsi),
+        macd: macdResult,
+        ma200,
+        volumeStatus,
+        setupType: setup.setupType,
+        totalScore,
+        trendScore,
+        structureScore,
+        momentumScore,
+        entryScore,
+        rrScore: rrPart,
+        marketScore: totalScore,
+        marketGrade: signalLevel,
+        entryGrade: signalLevel,
+        majorTrend: direction === "long" ? "偏多" : direction === "short" ? "偏空" : "盤整",
+        rr: planMetrics.rr,
+        rrToTp1: planMetrics.rrToTp1,
+        rrToTp2: planMetrics.rrToTp2,
+        rrDisplay: planMetrics.rrDisplay,
+        rrStretch: planMetrics.rrStretch,
+        signalLevel,
+        signalStage: signalLevel === "D" ? "不交易" : "確認訊號",
+        telegramWillNotify: canNotify,
+        noTelegramReason: canNotify ? "" : `${signalLevel}級不推播`,
+        nonTradeReasons: hardBlockReasons.length ? hardBlockReasons : signalLevel === "D" ? ["score below 60"] : [],
+        hardBlockReasons,
+        hardBlocks: hardBlockReasons,
+        hardBlocked,
+        warnings,
+        riskWarnings: warnings,
+        cooldown,
+        ma30Deviation,
+        chaseRisk,
+        entryQualityLabel: setup.setupType,
+        canEnter: ["S", "A"].includes(signalLevel),
+        stopLossPercent: planMetrics.stopLossPercent,
+        maxStopLossPercent: planMetrics.maxStopLossPercent,
+        stopLossTooSmall: false,
+        tradePlan: direction ? [
+          `setupType：${setup.setupType}`,
+          `Entry：${priceNumber(planMetrics.entry ?? basic.price)}`,
+          `SL：${Number.isFinite(planMetrics.stop) ? priceNumber(planMetrics.stop) : "-"}`,
+          `TP1：${Number.isFinite(planMetrics.tp1) ? priceNumber(planMetrics.tp1) : "-"}`,
+          `TP2：${Number.isFinite(planMetrics.tp2) ? priceNumber(planMetrics.tp2) : "-"}`,
+          `RR(TP1)：${Number.isFinite(planMetrics.rrDisplay) ? number(planMetrics.rrDisplay, 1) + "R" : "-"}`,
+          `RR(TP2)：${Number.isFinite(planMetrics.rrStretch) ? number(planMetrics.rrStretch, 1) + "R" : "-"}`
+        ].join("<br>") : "方向不明，等待",
+        direction,
+        directionScore: totalScore,
+        previousRecentHigh: basic.previousRecentHigh,
+        previousRecentLow: basic.previousRecentLow,
+        ma15m30Prev: basic.ma15m30Prev,
+        prevClose: basic.prevClose,
+        prevMa10: basic.prevMa10,
+        finalSignal,
+        price: basic.price,
+        symbol: basic.symbol || currentSymbol()
+      };
     }
 
     function entryGrade(score) {
@@ -3430,8 +3834,8 @@ ${noTradeReasons}
       document.querySelector("#volumeStatus").textContent = `${data.volumeStatus} (${number(data.volumeRatio, 2)}x)`;
       document.querySelector("#macdStatus").innerHTML = `${data.macd.label}｜${data.macd.crossAge === null ? "尚未偵測交叉" : `${data.macd.crossAge} 根 K`}<br><small>RSI(14)：${Number.isFinite(data.rsi) ? number(data.rsi, 1) : "-"}｜${data.rsiStatus}</small>`;
       document.querySelector("#atrStatus").textContent = `${number(data.atr)}｜${number(data.atrInfo.percent, 3)}%｜${data.atrInfo.status}`;
-      const momentumTone = data.momentumScore >= 80 ? "win" : data.momentumScore >= 60 ? "flat" : "muted";
-      document.querySelector("#entryQuality").innerHTML = `目前模式：${data.modeLabel || "積極"}<br>大方向：${data.majorTrend || "盤整"}<br>狀態：${data.signalStage || "等待"}<br>訊號等級：${data.signalLevel || "-"}<br>盤勢評分：${data.marketScore} / 100（${data.marketGrade}）<br>Entry Quality：${data.entryScore} / 100（${data.entryGrade}）<br><span class="${momentumTone}">Momentum Score：${data.momentumScore ?? 0}/100</span><br>冷卻狀態：${data.cooldown?.active ? "冷卻中｜剩餘 " + data.cooldown.remainingMinutes + " 分鐘" : "正常"}<br>MA30 偏離：目前 ${Number.isFinite(data.ma30Deviation?.percent) ? number(data.ma30Deviation.percent, 2) : "-"}% / 上限 ${number(data.ma30Deviation?.limit ?? 0, 2)}%<br>Telegram 推播狀態：${data.telegramWillNotify ? "會推播" : "不推播"}${data.telegramWillNotify ? "" : "｜" + (data.noTelegramReason || "")}<br>訊號狀態：${data.entryQualityLabel}`;
+      const momentumTone = data.momentumScore >= 15 ? "win" : data.momentumScore >= 10 ? "flat" : "muted";
+      document.querySelector("#entryQuality").innerHTML = `大方向：${data.majorTrend || "盤整"}<br>setupType：${data.setupType || "none"}<br>訊號等級：${data.signalLevel || "-"}<br>totalScore：${data.totalScore ?? data.marketScore} / 100<br>Trend：${data.trendScore ?? "-"}｜Structure：${data.structureScore ?? "-"}｜Entry：${data.entryScore ?? "-"}｜RR：${data.rrScore ?? "-"}<br><span class="${momentumTone}">Momentum：${data.momentumScore ?? 0}/20</span><br>MA30 偏離：目前 ${Number.isFinite(data.ma30Deviation?.percent) ? number(data.ma30Deviation.percent, 2) : "-"}% / 上限 ${number(data.ma30Deviation?.limit ?? 0, 2)}%<br>Telegram 推播狀態：${data.telegramWillNotify ? "會推播" : "不推播"}${data.telegramWillNotify ? "" : "｜" + (data.noTelegramReason || "")}<br>訊號狀態：${data.entryQualityLabel}`;
       document.querySelector("#finalSignal").innerHTML = `<span class="signal-icon"></span>${data.finalSignal}`;
       if (data.ma200?.available) {
         document.querySelector("#ma200Value").textContent = number(data.ma200.value ?? marketValue("ma4h200"));
@@ -3540,6 +3944,7 @@ ${noTradeReasons}
         const debugOriginalSymbol = bingxPriceResult.originalSymbol || tvSymbol(symbol);
         const last20of15m = klines15m.slice(-20);
         const closedRecent15m = klines15m.slice(-21, -1);
+        const prev15m = klines15m.slice(0, -1);
         const previousRecentHigh = Math.max(...closedRecent15m.map((item) => item.high));
         const previousRecentLow = Math.min(...closedRecent15m.map((item) => item.low));
         const fieldsToUpdate = {
@@ -3566,6 +3971,9 @@ ${noTradeReasons}
           ma15m30: fieldsToUpdate.ma15m30,
           ma5: fieldsToUpdate.ma15m5,
           ma10: fieldsToUpdate.ma15m10,
+          ma15m30Prev: average(prev15m.slice(-30).map((item) => item.close)),
+          prevClose: prev15m.at(-1)?.close,
+          prevMa10: average(prev15m.slice(-10).map((item) => item.close)),
           recentHigh: fieldsToUpdate.recentHigh,
           recentLow: fieldsToUpdate.recentLow,
           previousRecentHigh,
@@ -3641,13 +4049,16 @@ ${noTradeReasons}
       const notNearLow = hasMarketValues("marketPrice", "recentLow") && price > recentLow * (1 + chaseBuffer);
       if (latestAdvancedAnalysis) {
         if (hasMarketValues("marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "recentHigh", "recentLow")) {
-          latestAdvancedAnalysis = scoreAdvancedAnalysis(latestAdvancedAnalysis, {
+          latestAdvancedAnalysis = scoreAdvancedAnalysisV2(latestAdvancedAnalysis, {
             price,
             ma4h,
             ma4h200,
             ma15m30,
             ma5,
             ma10,
+            ma15m30Prev: latestAdvancedAnalysis.ma15m30Prev ?? ma15m30,
+            prevClose: latestAdvancedAnalysis.prevClose ?? price,
+            prevMa10: latestAdvancedAnalysis.prevMa10 ?? ma10,
             recentHigh,
             recentLow,
             previousRecentHigh: latestAdvancedAnalysis.previousRecentHigh,
@@ -4044,6 +4455,7 @@ ${noTradeReasons}
     document.querySelector("#bingxApiProxyUrl")?.addEventListener("input", () => {
       saveBingxApiProxyUrl();
       updateMarketDashboard();
+      refreshSignalStats();
     });
     document.querySelector("#symbolSelect").addEventListener("change", () => {
       saveMarketInputs(activeSymbol);
@@ -4081,6 +4493,7 @@ ${noTradeReasons}
     document.querySelector("#tradeCollapseBtn").addEventListener("click", () => {
       setTradeCollapsed(!form.classList.contains("collapsed"));
     });
+    document.querySelector("#refreshSignalStatsBtn")?.addEventListener("click", refreshSignalStats);
 
     loadLayoutMode();
     loadTelegramSettings();
@@ -4091,6 +4504,7 @@ ${noTradeReasons}
     updateMarketDashboard();
     startAutoUpdate();
     updateBingxMarketData({ source: "auto" });
+    refreshSignalStats();
     setDefaults();
     render();
   </script>
