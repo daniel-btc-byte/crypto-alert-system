@@ -1248,8 +1248,8 @@
         <div class="signal-stat-card"><span>勝率</span><strong id="signalWinRate">-</strong></div>
         <div class="signal-stat-card"><span>S / A / B 勝率</span><strong id="signalGradeRates">-</strong></div>
         <div class="signal-stat-card"><span>多單 / 空單勝率</span><strong id="signalSideRates">-</strong></div>
-        <div class="signal-stat-card"><span>Pullback / Breakout</span><strong id="signalSetupRates">-</strong></div>
-        <div class="signal-stat-card"><span>OPEN 訊號</span><strong id="signalOpenCount">-</strong></div>
+        <div class="signal-stat-card"><span>回踩單 / 突破單</span><strong id="signalSetupRates">-</strong></div>
+        <div class="signal-stat-card"><span>進行中訊號</span><strong id="signalOpenCount">-</strong></div>
       </div>
       <div class="signal-records-wrap">
         <table class="signal-records-table">
@@ -1259,11 +1259,11 @@
               <th>幣種</th>
               <th>方向</th>
               <th>等級</th>
-              <th>setupType</th>
-              <th>Entry</th>
-              <th>SL</th>
-              <th>TP1</th>
-              <th>TP2</th>
+              <th>型態</th>
+              <th>進場</th>
+              <th>止損</th>
+              <th>止盈1</th>
+              <th>止盈2</th>
               <th>結果</th>
             </tr>
           </thead>
@@ -1924,9 +1924,53 @@
       return bucket ? percentText(bucket.winRate) : "-";
     }
 
+    function formatSetupTypeLabel(value) {
+      const normalized = String(value || "").toLowerCase();
+      if (normalized === "pullback") return "回踩單";
+      if (normalized === "breakout") return "突破單";
+      if (normalized === "none") return "未確認";
+      return value || "-";
+    }
+
+    function formatOutcomeLabel(value) {
+      const normalized = String(value || "").toUpperCase();
+      const labels = {
+        OPEN: "進行中",
+        SL_HIT: "止損",
+        TP1_HIT: "止盈1",
+        TP2_HIT: "止盈2",
+        EXPIRED: "逾時",
+        AMBIGUOUS: "順序不明"
+      };
+      return labels[normalized] || value || "-";
+    }
+
+    function formatWarningLabel(value) {
+      if (!value) return "";
+      let text = String(value);
+      const replacements = [
+        [/volume too low/gi, "量能過低"],
+        [/setup not confirmed/gi, "進場型態尚未確認"],
+        [/chase risk, wait for better entry/gi, "追價風險，等待更好進場"],
+        [/volume weak/gi, "量能偏弱"],
+        [/stop distance high/gi, "止損距離偏大"],
+        [/MA30 deviation high/gi, "偏離 MA30 過遠"],
+        [/direction unclear/gi, "方向不明"],
+        [/data insufficient/gi, "資料不足"],
+        [/stop distance unavailable/gi, "止損距離資料不足"],
+        [/consolidation too long/gi, "盤整過久"],
+        [/score below 60/gi, "分數低於 60"],
+        [/B score\/RR below notify threshold/gi, "B級分數或風報未達推播門檻"]
+      ];
+      replacements.forEach(([pattern, label]) => {
+        text = text.replace(pattern, label);
+      });
+      return text;
+    }
+
     function signalOutcomeLabel(record) {
-      if (record.status === "OPEN") return "OPEN";
-      return record.outcome || "-";
+      if (record.status === "OPEN" || record.result === "OPEN") return formatOutcomeLabel("OPEN");
+      return formatOutcomeLabel(record.outcome);
     }
 
     async function fetchSignalStats() {
@@ -1944,7 +1988,7 @@
       document.querySelector("#signalWinRate").textContent = percentText(stats.overallWinRate);
       document.querySelector("#signalGradeRates").innerHTML = `S ${bucketRate(stats.byLevel?.S)}<br>A ${bucketRate(stats.byLevel?.A)}<br>B ${bucketRate(stats.byLevel?.B)}`;
       document.querySelector("#signalSideRates").innerHTML = `多 ${bucketRate(stats.byDirection?.long)}<br>空 ${bucketRate(stats.byDirection?.short)}`;
-      document.querySelector("#signalSetupRates").innerHTML = `pullback ${bucketRate(stats.bySetupType?.pullback)}<br>breakout ${bucketRate(stats.bySetupType?.breakout)}`;
+      document.querySelector("#signalSetupRates").innerHTML = `回踩單 ${bucketRate(stats.bySetupType?.pullback)}<br>突破單 ${bucketRate(stats.bySetupType?.breakout)}`;
       document.querySelector("#signalOpenCount").textContent = stats.openSignals ?? 0;
       document.querySelector("#signalRecords").innerHTML = recentSignals.length
         ? recentSignals.map((record) => `
@@ -1953,7 +1997,7 @@
             <td>${record.symbol || "-"}</td>
             <td>${record.direction === "long" ? "做多" : record.direction === "short" ? "做空" : "-"}</td>
             <td>${record.signalLevel || "-"}</td>
-            <td>${record.setupType || "-"}</td>
+            <td>${formatSetupTypeLabel(record.setupType)}</td>
             <td>${priceNumber(Number(record.entry))}</td>
             <td>${priceNumber(Number(record.stop))}</td>
             <td>${priceNumber(Number(record.tp1))}</td>
@@ -2359,13 +2403,13 @@
         maxStopLossPercent: planMetrics.maxStopLossPercent,
         stopLossTooSmall: false,
         tradePlan: direction ? [
-          `setupType：${setup.setupType}`,
-          `Entry：${priceNumber(planMetrics.entry ?? basic.price)}`,
-          `SL：${Number.isFinite(planMetrics.stop) ? priceNumber(planMetrics.stop) : "-"}`,
-          `TP1：${Number.isFinite(planMetrics.tp1) ? priceNumber(planMetrics.tp1) : "-"}`,
-          `TP2：${Number.isFinite(planMetrics.tp2) ? priceNumber(planMetrics.tp2) : "-"}`,
-          `RR(TP1)：${Number.isFinite(planMetrics.rrDisplay) ? number(planMetrics.rrDisplay, 1) + "R" : "-"}`,
-          `RR(TP2)：${Number.isFinite(planMetrics.rrStretch) ? number(planMetrics.rrStretch, 1) + "R" : "-"}`
+          `進場型態：${formatSetupTypeLabel(setup.setupType)}`,
+          `進場：${priceNumber(planMetrics.entry ?? basic.price)}`,
+          `止損：${Number.isFinite(planMetrics.stop) ? priceNumber(planMetrics.stop) : "-"}`,
+          `止盈1：${Number.isFinite(planMetrics.tp1) ? priceNumber(planMetrics.tp1) : "-"}`,
+          `止盈2：${Number.isFinite(planMetrics.tp2) ? priceNumber(planMetrics.tp2) : "-"}`,
+          `風報1：${Number.isFinite(planMetrics.rrDisplay) ? number(planMetrics.rrDisplay, 1) + "R" : "-"}`,
+          `風報2：${Number.isFinite(planMetrics.rrStretch) ? number(planMetrics.rrStretch, 1) + "R" : "-"}`
         ].join("<br>") : "方向不明，等待",
         direction,
         directionScore: totalScore,
@@ -2480,7 +2524,7 @@
       document.querySelector("#macdStatus").textContent = data.macd.label;
       document.querySelector("#atrStatus").textContent = `${number(data.atr)}｜${number(data.atrInfo.percent, 3)}%｜${data.atrInfo.status}`;
       const momentumTone = data.momentumScore >= 15 ? "win" : data.momentumScore >= 10 ? "flat" : "muted";
-      document.querySelector("#entryQuality").innerHTML = `大方向：${data.majorTrend || "盤整"}<br>setupType：${data.setupType || "none"}<br>訊號等級：${data.signalLevel || "-"}<br>totalScore：${data.totalScore ?? data.marketScore} / 100<br>Trend：${data.trendScore ?? "-"}｜Structure：${data.structureScore ?? "-"}｜Entry：${data.entryScore ?? "-"}｜RR：${data.rrScore ?? "-"}<br><span class="${momentumTone}">Momentum：${data.momentumScore ?? 0}/20</span><br>MA30 偏離：${Number.isFinite(data.ma30Deviation?.percent) ? number(data.ma30Deviation.percent, 2) : "-"}% / 上限 ${number(data.ma30Deviation?.limit ?? 0, 2)}%<br>Telegram 推播：${data.telegramWillNotify ? "會推播" : "不推播"}${data.telegramWillNotify ? "" : "｜" + (data.noTelegramReason || "-")}<br>進場型態：${data.entryQualityLabel || "-"}`;
+      document.querySelector("#entryQuality").innerHTML = `大方向：${data.majorTrend || "盤整"}<br>進場型態：${formatSetupTypeLabel(data.setupType)}<br>訊號等級：${data.signalLevel || "-"}<br>總分：${data.totalScore ?? data.marketScore} / 100<br>趨勢：${data.trendScore ?? "-"}｜結構：${data.structureScore ?? "-"}｜進場：${data.entryScore ?? "-"}｜風報：${data.rrScore ?? "-"}<br><span class="${momentumTone}">動能：${data.momentumScore ?? 0}/20</span><br>MA30 偏離：${Number.isFinite(data.ma30Deviation?.percent) ? number(data.ma30Deviation.percent, 2) : "-"}% / 上限 ${number(data.ma30Deviation?.limit ?? 0, 2)}%<br>Telegram 推播：${data.telegramWillNotify ? "會推播" : "不推播"}${data.telegramWillNotify ? "" : "｜" + formatWarningLabel(data.noTelegramReason || "-")}<br>進場型態：${formatSetupTypeLabel(data.entryQualityLabel)}`;
       document.querySelector("#finalSignal").innerHTML = `<span class="signal-icon"></span>${data.finalSignal}`;
       if (data.ma200?.available) {
         document.querySelector("#ma200Value").textContent = number(data.ma200.value ?? marketValue("ma4h200"));
@@ -2488,7 +2532,7 @@
         document.querySelector("#ma200Distance").textContent = `${data.ma200.distancePercent >= 0 ? "+" : ""}${number(data.ma200.distancePercent, 2)}%`;
         document.querySelector("#ma200Warning").textContent = data.ma200.warning;
       }
-      document.querySelector("#riskWarnings").innerHTML = data.riskWarnings.length ? data.riskWarnings.join("<br>") : "目前沒有主要風險提醒";
+      document.querySelector("#riskWarnings").innerHTML = data.riskWarnings.length ? data.riskWarnings.map(formatWarningLabel).join("<br>") : "目前沒有主要風險提醒";
       document.querySelector("#tradePlan").innerHTML = data.tradePlan;
       document.querySelector("#analysisStatus").textContent = "v2.0 訊號回測版分析完成";
       setTone("volumeStatus", statusTone(data.volumeStatus));
@@ -2739,7 +2783,7 @@
       const reasons = latestAdvancedAnalysis
         ? [...(latestAdvancedAnalysis.hardBlockReasons || []), ...(latestAdvancedAnalysis.warnings || [])]
         : [];
-      document.querySelector("#tradeReason").textContent = reasons.length ? reasons.join("｜") : "依照目前市場結構判斷。";
+      document.querySelector("#tradeReason").textContent = reasons.length ? reasons.map(formatWarningLabel).join("｜") : "依照目前市場結構判斷。";
     }
     document.querySelector("#updateMarketBtn").addEventListener("click", updateBingxMarketData);
     document.querySelector("#telegramTestBtn")?.addEventListener("click", testTelegramNotification);
