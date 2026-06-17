@@ -1,4 +1,4 @@
-const fs = require("node:fs");
+﻿const fs = require("node:fs");
 const path = require("node:path");
 
 const WORKER_BASE_URL = "https://bingx-proxy.danielfeng8.workers.dev";
@@ -120,11 +120,10 @@ function atrState(atr, price) {
     return { percent: null, status: "資料不足", low: false, high: false, normal: false };
   }
   const percent = (atr / price) * 100;
-  if (percent < 0.12) return { percent, status: "波動不足，等待", low: true, high: false, normal: false };
-  if (percent > 1.2) return { percent, status: "高波動，降低倉位", low: false, high: true, normal: false };
+  if (percent < 0.12) return { percent, status: "波動不足", low: true, high: false, normal: false };
+  if (percent > 1.2) return { percent, status: "高波動", low: false, high: true, normal: false };
   return { percent, status: "正常波動", low: false, high: false, normal: true };
 }
-
 function rsi14(values) {
   if (!Array.isArray(values) || values.length < 15) return null;
   let gains = 0;
@@ -223,10 +222,9 @@ function buildMacdAnalysis(closes) {
       ? previousHistogram !== undefined && latestHistogram <= previousHistogram ? "多頭動能減弱" : "多頭動能增強"
       : latestHistogram < 0
         ? previousHistogram !== undefined && Math.abs(latestHistogram) <= Math.abs(previousHistogram) ? "空頭動能減弱" : "空頭動能增強"
-        : "動能減弱"
+        : "動能中性"
   };
 }
-
 function getBreakoutThreshold(symbol) {
   const base = baseSymbol(symbol);
   return ["SOL", "DOGE", "XRP", "ADA"].includes(base) ? 0.0005 : 0.001;
@@ -597,7 +595,7 @@ function signalKey(analysis) {
 }
 
 function shouldNotify(analysis, state) {
-  if (!analysis.canNotify) return { notify: false, reason: analysis.notifyBlockedReason || "不符合通知條件" };
+  if (!analysis.canNotify) return { notify: false, reason: analysis.notifyBlockedReason || "不符合推播條件" };
   const key = signalKey(analysis);
   const previous = state[key];
   const now = Date.now();
@@ -605,10 +603,10 @@ function shouldNotify(analysis, state) {
   const lastLevel = previous.lastNotifyLevel || previous.level || "D";
   const lastNotifyTime = Number(previous.lastNotifyTime || previous.time || 0);
   if (previous.direction && analysis.direction && previous.direction !== analysis.direction) {
-    return { notify: true, key, reason: `signal direction changed ${previous.direction}→${analysis.direction}` };
+    return { notify: true, key, reason: `signal direction changed ${previous.direction}->${analysis.direction}` };
   }
   if (signalLevelRank(analysis.signalLevel) > signalLevelRank(lastLevel)) {
-    return { notify: true, key, reason: `signal upgraded ${lastLevel}→${analysis.signalLevel}` };
+    return { notify: true, key, reason: `signal upgraded ${lastLevel}->${analysis.signalLevel}` };
   }
   const elapsedMinutes = (now - lastNotifyTime) / 60000;
   if (elapsedMinutes >= COOLDOWN_MINUTES) return { notify: true, key, reason: "new signal" };
@@ -807,175 +805,92 @@ function computeSignalStats(records) {
 }
 
 function scoreAdvancedAnalysis(klines15m, basic) {
-  if (klines15m.length < 220) return null;
-  const closes = klines15m.map((item) => item.close);
-  const volumes = klines15m.map((item) => item.volume).filter(Number.isFinite);
-  if (volumes.length < 20) return null;
+  return scoreAdvancedAnalysisV2(klines15m, basic);
+}
+function setupTypeLabel(type) {
+  if (type === "breakout") return "突破單";
+  if (type === "pullback") return "回踩單";
+  return "未確認";
+}
 
-  const volumeRatio = volumes.at(-1) / average(volumes.slice(-20));
-  const macd = buildMacdAnalysis(closes);
-  const atr = atr14(klines15m);
-  const rsi = rsi14(closes);
-  if (![volumeRatio, atr].every(Number.isFinite) || !macd || !Number.isFinite(rsi)) return null;
+function translateWarningText(text) {
+  const value = String(text || "").trim();
+  if (!value) return "";
+  if (value === "chase risk, wait for better entry") return "追價風險，等待更好進場點";
+  if (value === "setup not confirmed") return "型態未確認";
+  if (value.startsWith("volume weak")) return value.replace("volume weak", "量能偏弱");
+  if (value.startsWith("stop distance high")) return value.replace("stop distance high", "止損距離偏大");
+  if (value.startsWith("MA30 deviation high")) return value.replace("MA30 deviation high", "偏離 MA30 過遠");
+  return value
+    .replace("chase risk", "追價風險")
+    .replace("wait for better entry", "等待更好進場點")
+    .replace("setup not confirmed", "型態未確認")
+    .replace("volume weak", "量能偏弱")
+    .replace("stop distance high", "止損距離偏大")
+    .replace("MA30 deviation high", "偏離 MA30 過遠");
+}
 
-  const atrInfo = atrState(atr, basic.price);
-  const macdFresh = macd.crossAge !== null && macd.crossAge <= 8;
-  const isBullEnvironment = basic.price > basic.ma4h && basic.price > basic.ma15m30;
-  const isBearEnvironment = basic.price < basic.ma4h && basic.price < basic.ma15m30;
-  const marketEnvironment = isBullEnvironment ? "bull" : isBearEnvironment ? "bear" : "mixed";
-  const direction = isBullEnvironment ? "long" : isBearEnvironment ? "short" : null;
+function warningReasonText(warnings) {
+  const items = (Array.isArray(warnings) ? warnings : [])
+    .map(translateWarningText)
+    .filter(Boolean);
+  return items.length ? items.join("、") : "-";
+}
 
-  const last8 = klines15m.slice(-8);
-  const rangeHigh = Math.max(...last8.map((item) => item.high));
-  const rangeLow = Math.min(...last8.map((item) => item.low));
-  const rangeBase = average(last8.map((item) => item.close));
-  const rangePercent = rangeBase > 0 ? ((rangeHigh - rangeLow) / rangeBase) * 100 : null;
-  const breakoutThreshold = getBreakoutThreshold(basic.symbol);
-  const longBreakout = Number.isFinite(basic.previousRecentHigh) && basic.price > basic.previousRecentHigh * (1 + breakoutThreshold);
-  const shortBreakout = Number.isFinite(basic.previousRecentLow) && basic.price < basic.previousRecentLow * (1 - breakoutThreshold);
-  const consolidationTooLong = last8.length >= 8 && Number.isFinite(rangePercent) && rangePercent < 0.45 && !(longBreakout || shortBreakout);
-  const priceSlope = closes.length >= 6 && closes.at(-6) > 0 ? ((closes.at(-1) - closes.at(-6)) / closes.at(-6)) * 100 : 0;
-
-  const plan = tradePlanMetrics(direction, { ...basic, atr });
-  const ma30Limit = CONFIG.ma30MaxDeviationPercent[baseSymbol(basic.symbol)] ?? 2;
-  const ma30Distance = Math.abs(basic.price - basic.ma15m30) / basic.price * 100;
-  const ma30TooFar = Number.isFinite(ma30Distance) && ma30Distance > ma30Limit;
-  const chaseRisk = direction === "long" ? !basic.notNearHigh : direction === "short" ? !basic.notNearLow : false;
-
-  const context = { ...basic, macd, macdFresh, rsi, volumeRatio, atrInfo, priceSlope };
-  const mScore = marketScore(direction, context);
-  const moScore = momentumScore(direction, context);
-  const trendAligned = direction === "long" ? marketEnvironment === "bull" : direction === "short" ? marketEnvironment === "bear" : false;
-  const maStackAligned = direction === "long"
-    ? basic.ma5 > basic.ma10 && basic.ma10 > basic.ma15m30
-    : direction === "short"
-      ? basic.ma5 < basic.ma10 && basic.ma10 < basic.ma15m30
-      : false;
-  const waitingPullback = direction === "long"
-    ? basic.ma5 < basic.ma10 || macd.crossType === "death"
-    : direction === "short"
-      ? basic.ma5 > basic.ma10 || macd.crossType === "golden"
-      : true;
-  const hardBlocked = !direction
-    || plan.stopLossTooSmall
-    || ma30TooFar
-    || chaseRisk
-    || (Number.isFinite(plan.rr) && plan.rr < 0.6)
-    || (direction === "long" && rsi > 88)
-    || (direction === "short" && rsi < 12)
-    || volumeRatio < 0.2;
-
-  let signalLevel = "C";
-  if (hardBlocked || consolidationTooLong || !Number.isFinite(plan.rr) || plan.rr < 0.6 || mScore < 65 || moScore < 20) {
-    signalLevel = "D";
-  } else if (
-    trendAligned
-    && maStackAligned
-    && moScore >= 80
-    && mScore >= 80
-    && plan.rr >= 2.5
-    && !chaseRisk
-    && !waitingPullback
-    && !atrInfo.low
-    && !atrInfo.high
-    && volumeRatio >= 0.8
-  ) {
-    signalLevel = "S";
-  } else if (trendAligned && !waitingPullback && plan.rr >= 1.5 && mScore >= 80 && moScore >= 60) {
-    signalLevel = "A";
-  } else if (trendAligned && plan.rr >= 0.6 && mScore >= 75 && moScore >= 40) {
-    signalLevel = "B";
-  }
-
-  const canNotify = ["S", "A", "B"].includes(signalLevel)
-    && !chaseRisk
-    && !plan.stopLossTooSmall
-    && !ma30TooFar;
-  const finalSignal = signalLevel === "S"
-    ? "⭐ S級機會"
-    : signalLevel === "A"
-      ? direction === "long" ? "強烈做多" : "強烈做空"
-      : signalLevel === "B"
-        ? direction === "long" ? "做多｜可以做" : "做空｜可以做"
-        : ma30TooFar
-          ? "⚠ 偏離 MA30 過遠，等待回踩"
-          : "不交易";
-
-  const warnings = [];
-  if (ma30TooFar) warnings.push(`偏離 MA30 過遠：目前 ${number(ma30Distance, 2)}% / 上限 ${number(ma30Limit, 2)}%`);
-  if (chaseRisk) warnings.push("追價風險，不推播");
-  if (plan.stopLossTooSmall) warnings.push(`結構太小：止損距離 ${number(plan.stopLossPercent, 2)}% < 最低 ${number(plan.minStopLossPercent, 2)}%`);
-  if (volumeRatio < 0.8) warnings.push(`量能偏低：${number(volumeRatio, 2)}x`);
-  if (atrInfo.high) warnings.push("ATR 高波動，降低倉位");
-  if (atrInfo.low) warnings.push("ATR 波動不足");
-  const nonTradeReasons = [];
-  if (!Number.isFinite(plan.rr)) nonTradeReasons.push("RR 資料不足");
-  else if (plan.rr < 0.6) nonTradeReasons.push(`RR 太低 (${number(plan.rr, 2)})`);
-  if (mScore < 65) nonTradeReasons.push("Market 分數不足");
-  if (moScore < 20) nonTradeReasons.push("Momentum 不足");
-  if (consolidationTooLong) nonTradeReasons.push("盤整過久");
-  if (!direction) nonTradeReasons.push("方向不明");
-  if (plan.stopLossTooSmall) nonTradeReasons.push("結構太小");
-  if (ma30TooFar) nonTradeReasons.push("偏離 MA30 過遠");
-  if (chaseRisk) nonTradeReasons.push("追價風險");
-  if (volumeRatio < 0.2) nonTradeReasons.push("量能極低");
-
-  return {
-    symbol: basic.symbol,
-    direction,
-    sideLabel: direction === "long" ? "做多" : direction === "short" ? "做空" : "觀察",
-    finalSignal,
-    signalLevel,
-    canNotify,
-    price: basic.price,
-    entryZone: direction === "long"
-      ? `${priceNumber(basic.price)} 附近，或回踩 15m MA10 ${priceNumber(basic.ma10)}`
-      : direction === "short"
-        ? `${priceNumber(basic.price)} 附近，或反彈 15m MA10 ${priceNumber(basic.ma10)}`
-        : `${priceNumber(basic.price)} 附近`,
-    stop: plan.stop,
-    tp1: plan.tp1,
-    tp2: plan.tp2,
-    rr: plan.rr,
-    marketScore: mScore,
-    momentumScore: moScore,
-    volumeRatio,
-    atrPercent: atrInfo.percent,
-    rsi,
-    warnings,
-    nonTradeReasons,
-    notifyBlockedReason: !canNotify ? (
-      ma30TooFar ? "偏離 MA30 過遠"
-        : plan.stopLossTooSmall ? "結構太小"
-          : chaseRisk ? "追價風險"
-            : `${signalLevel}級不推播`
-    ) : ""
-  };
+function signalTitleIcon(level) {
+  if (level === "S") return "🔥🔥🔥";
+  if (level === "A") return "🔥🔥";
+  return "🟡";
 }
 
 function telegramText(analysis) {
-  const icon = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🔥" : "🟡";
-  const reminder = analysis.signalLevel === "S"
-    ? "高品質訊號，仍需自行確認K線。"
-    : analysis.signalLevel === "A"
-      ? "可觀察進場，不追價。"
-      : "等回踩或收線確認。";
-  const bLevelNote = analysis.signalLevel === "B" ? "小倉觀察，不建議追價\n" : "";
-  return `${icon} ${analysis.signalLevel}級 ${analysis.symbol} ${analysis.sideLabel}
-${bLevelNote}setupType：${analysis.setupType}
-現價：${priceNumber(analysis.price)}
-Entry：${analysis.entryZone}
-SL：${Number.isFinite(analysis.stop) ? priceNumber(analysis.stop) : "-"}
-TP1：${Number.isFinite(analysis.tp1) ? priceNumber(analysis.tp1) : "-"}
-TP2：${Number.isFinite(analysis.tp2) ? priceNumber(analysis.tp2) : "-"}
-RR(TP1)：${Number.isFinite(analysis.rrDisplay) ? number(analysis.rrDisplay, 1) + "R" : "-"}
-RR(TP2)：${Number.isFinite(analysis.rrStretch) ? number(analysis.rrStretch, 1) + "R" : "-"}
-totalScore：${analysis.totalScore}
-Market：${analysis.marketScore} / Momentum：${analysis.momentumScore}/20
-warnings：${analysis.warnings.length ? analysis.warnings.join("｜") : "-"}
-提醒：${reminder}`;
-}
+  const level = analysis.signalLevel || "-";
+  const directionText = analysis.direction === "short" ? "空單" : analysis.direction === "long" ? "多單" : "觀察";
+  const typeText = setupTypeLabel(analysis.setupType);
+  const rrTp1 = Number.isFinite(analysis.rrDisplay) ? number(analysis.rrDisplay, 1) + "R" : "-";
+  const rrTp2 = Number.isFinite(analysis.rrStretch) ? number(analysis.rrStretch, 1) + "R" : "-";
+  const scoreText = `總分：${analysis.totalScore ?? "-"}\n市場：${analysis.marketScore ?? analysis.totalScore ?? "-"} / 100\n動能：${analysis.momentumScore ?? "-"} / 20`;
+  const priceBlock = `現價：${priceNumber(analysis.price)}\n進場：${analysis.entryZone}\n止損：${Number.isFinite(analysis.stop) ? priceNumber(analysis.stop) : "-"}\n止盈1：${Number.isFinite(analysis.tp1) ? priceNumber(analysis.tp1) : "-"}\n止盈2：${Number.isFinite(analysis.tp2) ? priceNumber(analysis.tp2) : "-"}`;
 
+  if (level === "B") {
+    return `${signalTitleIcon(level)} B級${directionText}｜${analysis.symbol}
+
+型態：${typeText}
+狀態：觀察，不建議追價
+
+${priceBlock}
+
+風報：
+TP1：${rrTp1}
+TP2：${rrTp2}
+
+分數：
+${scoreText}
+
+提醒：
+等回踩或收線確認。
+原因：
+${warningReasonText(analysis.warnings)}`;
+  }
+
+  const reminder = level === "S"
+    ? "高品質訊號，仍需自行確認K線。"
+    : "可觀察進場，不追價。";
+  return `${signalTitleIcon(level)} ${level}級${directionText}｜${analysis.symbol}
+
+型態：${typeText}
+${priceBlock}
+
+風報：
+TP1：${rrTp1}
+TP2：${rrTp2}
+
+分數：
+${scoreText}
+
+提醒：
+${reminder}`;
+}
 async function sendTelegram(text) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -1039,3 +954,7 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
+
+
+
+

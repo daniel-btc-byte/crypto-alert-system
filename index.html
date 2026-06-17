@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>BTC-USDT 看盤輔助儀表板</title>
+  <title>BingX 看盤輔助員</title>
   <style>
     :root {
       color-scheme: dark;
@@ -185,8 +185,7 @@
       color: var(--red);
     }
 
-    .mobile-market-actions,
-    .record-cards {
+    .mobile-market-actions {
       display: none;
     }
 
@@ -224,36 +223,6 @@
 
     .btn.danger {
       color: var(--red);
-    }
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
-      gap: 12px;
-      margin: 8px 0 16px;
-    }
-
-    .stat {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 16px;
-      box-shadow: var(--shadow);
-      min-width: 0;
-    }
-
-    .stat span {
-      display: block;
-      color: var(--muted);
-      font-size: 13px;
-      margin-bottom: 8px;
-    }
-
-    .stat strong {
-      display: block;
-      font-size: 24px;
-      line-height: 1.15;
-      overflow-wrap: anywhere;
     }
 
     .layout {
@@ -661,46 +630,6 @@
       margin-top: 6px;
     }
 
-    .form-panel {
-      padding: 16px;
-      position: sticky;
-      top: 16px;
-    }
-
-    .panel-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .panel-head h2 {
-      margin: 0;
-    }
-
-    .collapse-btn {
-      min-height: 32px;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: var(--panel-soft);
-      color: var(--muted);
-      padding: 5px 9px;
-      white-space: nowrap;
-    }
-
-    .form-body {
-      display: block;
-    }
-
-    .form-panel.collapsed .form-body {
-      display: none;
-    }
-
-    .form-panel.collapsed .panel-head {
-      margin-bottom: 0;
-    }
-
     h2 {
       margin: 0 0 14px;
       font-size: 18px;
@@ -778,75 +707,6 @@
       color: #697482;
     }
 
-    .form-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 14px;
-    }
-
-    .checklist {
-      grid-column: 1 / -1;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 12px;
-      background: var(--panel-strong);
-    }
-
-    .checklist legend {
-      color: var(--ink);
-      font-weight: 700;
-      padding: 0 4px;
-    }
-
-    .checklist-list {
-      display: grid;
-      gap: 8px;
-      margin-top: 8px;
-    }
-
-    .check-item {
-      display: grid;
-      grid-template-columns: 20px 1fr;
-      align-items: start;
-      gap: 8px;
-      color: var(--ink);
-      font-size: 14px;
-      line-height: 1.35;
-    }
-
-    .check-item input {
-      width: 18px;
-      height: 18px;
-      min-height: 18px;
-      margin: 1px 0 0;
-      accent-color: var(--accent);
-    }
-
-    .check-hint {
-      margin: 10px 0 0;
-      color: var(--amber);
-      font-size: 13px;
-    }
-
-    .filters {
-      display: grid;
-      grid-template-columns: 1fr 160px 160px;
-      gap: 10px;
-      padding: 14px;
-      border-bottom: 1px solid var(--line);
-    }
-
-    .table-wrap {
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 820px;
-    }
-
     body.layout-portrait {
       overflow: auto;
     }
@@ -914,23 +774,6 @@
     .gold {
       color: #f0b90b;
       font-weight: 800;
-    }
-
-    .row-actions {
-      display: flex;
-      gap: 6px;
-      justify-content: flex-end;
-    }
-
-    .icon-btn {
-      width: 34px;
-      height: 34px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel-soft);
-      color: var(--ink);
-      display: inline-grid;
-      place-items: center;
     }
 
     .empty {
@@ -1116,8 +959,7 @@
       .market-panel .grid,
       body.layout-auto .market-panel .grid,
       body.layout-portrait .market-panel .grid,
-      .grid,
-      .filters {
+      .grid {
         grid-template-columns: 1fr;
       }
 
@@ -1125,104 +967,16 @@
         grid-template-columns: 1fr;
       }
 
-      .form-panel,
-      body.layout-auto .form-panel,
-      body.layout-portrait .form-panel {
-        order: 3;
-        position: static;
-        overflow: visible;
-        padding: 12px;
-      }
-
-      .stats,
-      body.layout-auto .stats,
-      body.layout-portrait .stats {
-        order: 4;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        margin: 0;
-        gap: 8px;
-      }
-
-      .layout > .panel,
-      body.layout-auto .layout > .panel,
-      body.layout-portrait .layout > .panel {
-        order: 5;
-        display: block;
-        overflow: visible;
-      }
-
       .section-title {
         display: none;
       }
 
-      .table-wrap {
-        display: none;
-      }
-
-      .record-cards {
-        display: grid;
-        gap: 10px;
-        padding: 10px;
-      }
-
-      .record-card {
-        border: 1px solid var(--line);
-        border-radius: var(--radius);
-        background: var(--panel-soft);
-        padding: 12px;
-        display: grid;
-        gap: 10px;
-      }
-
-      .record-card-head,
-      .record-card-actions {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 8px;
-      }
-
-      .record-card-date {
-        color: var(--muted);
-        font-size: 13px;
-      }
-
-      .record-card-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
-      }
-
-      .record-card-field span {
-        display: block;
-        color: var(--muted);
-        font-size: 12px;
-        margin-bottom: 3px;
-      }
-
-      .record-card-field strong {
-        display: block;
-        font-size: 15px;
-        overflow-wrap: anywhere;
-      }
-
-      .record-card-note {
-        border-top: 1px solid var(--line);
-        padding-top: 9px;
-        color: var(--ink);
-        font-size: 14px;
-        line-height: 1.45;
-      }
-
-      .actions,
-      .form-actions {
+      .actions {
         width: 100%;
       }
 
       .btn,
-      .mode-btn,
-      .collapse-btn,
-      .icon-btn {
+      .mode-btn {
         min-height: 48px;
       }
 
@@ -1253,12 +1007,10 @@
         padding-top: 18px;
       }
 
-      .stats,
       .signal-grid,
       .analysis-grid,
       .condition-grid,
-      .grid,
-      .filters {
+      .grid {
         grid-template-columns: 1fr;
       }
 
@@ -1286,12 +1038,12 @@
       <div class="brand">
         <div class="btc-logo" aria-hidden="true">₿</div>
         <div>
-          <h1>BTC 看盤輔助儀表板</h1>
-          <p class="sub">輸入關鍵均線與高低點，快速判斷目前偏多、偏空，還是等待。</p>
+          <h1>加密貨幣看盤輔助儀表板</h1>
+          <p class="sub">BingX Futures 數據、自動訊號分析、Telegram 通知與回測追蹤。</p>
         </div>
       </div>
       <div class="actions">
-        <select id="symbolSelect" class="symbol-select" title="選擇幣種">
+        <select id="symbolSelect" class="symbol-select" title="幣種選擇">
           <option value="BTC-USDT">BTC-USDT</option>
           <option value="ETH-USDT">ETH-USDT</option>
           <option value="SOL-USDT">SOL-USDT</option>
@@ -1306,22 +1058,20 @@
         <input id="telegramBotToken" class="telegram-input" type="password" autocomplete="off" placeholder="Telegram Bot Token" title="Telegram Bot Token">
         <input id="telegramChatId" class="telegram-input" type="text" autocomplete="off" placeholder="Telegram Chat ID" title="Telegram Chat ID">
         <button class="btn" id="telegramTestBtn" type="button" title="測試 Telegram 通知">測試通知</button>
-        <button class="btn" id="exportBtn" type="button" title="匯出 CSV">匯出 CSV</button>
-        <button class="btn danger" id="clearBtn" type="button" title="清空全部紀錄">清空</button>
       </div>
     </header>
 
-    <section class="dashboard" aria-label="BTC 看盤判斷">
+    <section class="dashboard" aria-label="市場數據與 K 線">
       <form class="panel market-panel" id="marketForm">
         <h2>市場數據</h2>
         <div class="market-actions">
-          <button class="btn primary" id="updateMarketBtn" type="button">更新 BTC 數據</button>
+          <button class="btn primary" id="updateMarketBtn" type="button">更新數據</button>
           <button class="btn" id="autoUpdateToggle" type="button">自動更新：開</button>
           <div class="auto-update-pill">
             <span id="autoUpdateState">自動更新：開</span>
             <strong id="autoUpdateCountdown">下一次更新倒數：5 秒</strong>
           </div>
-          <div class="market-status" id="marketUpdateStatus">尚未自動更新。</div>
+          <div class="market-status" id="marketUpdateStatus">等待自動更新</div>
         </div>
         <div class="grid">
           <div class="field">
@@ -1330,7 +1080,7 @@
           </div>
           <div class="field">
             <label>現價來源</label>
-            <input id="priceSource" type="text" value="尚未更新" readonly>
+            <input id="priceSource" type="text" value="等待更新" readonly>
           </div>
           <div class="field">
             <label>K 線來源</label>
@@ -1370,8 +1120,8 @@
               </div>
             </div>
           </section>
-          <section class="market-group" aria-label="關鍵位置">
-            <h3 class="market-group-title">關鍵位置</h3>
+          <section class="market-group" aria-label="關鍵位置與設定">
+            <h3 class="market-group-title">關鍵位置與設定</h3>
             <div class="market-group-grid">
               <div class="field">
                 <label for="recentHigh">最近高點</label>
@@ -1389,46 +1139,16 @@
                 <label for="bingxApiProxyUrl">BingX API Proxy URL</label>
                 <input id="bingxApiProxyUrl" type="url" placeholder="https://xxxx.workers.dev">
               </div>
-              <div class="field">
-                <label for="minStopBtc">最小止損距離 BTC (%)</label>
-                <input id="minStopBtc" type="number" min="0" step="0.1" value="0.5">
-              </div>
-              <div class="field">
-                <label for="minStopEth">最小止損距離 ETH (%)</label>
-                <input id="minStopEth" type="number" min="0" step="0.1" value="0.7">
-              </div>
-              <div class="field">
-                <label for="minStopSol">最小止損距離 SOL (%)</label>
-                <input id="minStopSol" type="number" min="0" step="0.1" value="1">
-              </div>
-              <div class="field">
-                <label for="minStopXrp">最小止損距離 XRP (%)</label>
-                <input id="minStopXrp" type="number" min="0" step="0.1" value="1">
-              </div>
-              <div class="field">
-                <label for="cooldownMinutes">冷卻時間（分鐘）</label>
-                <input id="cooldownMinutes" type="number" min="0" step="1" value="30">
-              </div>
-              <div class="field">
-                <label for="ma30LimitBtc">BTC MA30 最大偏離 (%)</label>
-                <input id="ma30LimitBtc" type="number" min="0" step="0.1" value="1.2">
-              </div>
-              <div class="field">
-                <label for="ma30LimitEth">ETH MA30 最大偏離 (%)</label>
-                <input id="ma30LimitEth" type="number" min="0" step="0.1" value="1.5">
-              </div>
-              <div class="field">
-                <label for="ma30LimitSol">SOL MA30 最大偏離 (%)</label>
-                <input id="ma30LimitSol" type="number" min="0" step="0.1" value="2">
-              </div>
-              <div class="field">
-                <label for="ma30LimitXrp">XRP MA30 最大偏離 (%)</label>
-                <input id="ma30LimitXrp" type="number" min="0" step="0.1" value="2">
-              </div>
-              <div class="field">
-                <label for="ma30LimitDoge">DOGE MA30 最大偏離 (%)</label>
-                <input id="ma30LimitDoge" type="number" min="0" step="0.1" value="2">
-              </div>
+              <div class="field"><label for="minStopBtc">最小止損距離 BTC (%)</label><input id="minStopBtc" type="number" min="0" step="0.1" value="0.5"></div>
+              <div class="field"><label for="minStopEth">最小止損距離 ETH (%)</label><input id="minStopEth" type="number" min="0" step="0.1" value="0.7"></div>
+              <div class="field"><label for="minStopSol">最小止損距離 SOL (%)</label><input id="minStopSol" type="number" min="0" step="0.1" value="1"></div>
+              <div class="field"><label for="minStopXrp">最小止損距離 XRP (%)</label><input id="minStopXrp" type="number" min="0" step="0.1" value="1"></div>
+              <div class="field"><label for="cooldownMinutes">冷卻時間（分鐘）</label><input id="cooldownMinutes" type="number" min="0" step="1" value="30"></div>
+              <div class="field"><label for="ma30LimitBtc">BTC MA30 最大偏離 (%)</label><input id="ma30LimitBtc" type="number" min="0" step="0.1" value="1.2"></div>
+              <div class="field"><label for="ma30LimitEth">ETH MA30 最大偏離 (%)</label><input id="ma30LimitEth" type="number" min="0" step="0.1" value="1.5"></div>
+              <div class="field"><label for="ma30LimitSol">SOL MA30 最大偏離 (%)</label><input id="ma30LimitSol" type="number" min="0" step="0.1" value="2"></div>
+              <div class="field"><label for="ma30LimitXrp">XRP MA30 最大偏離 (%)</label><input id="ma30LimitXrp" type="number" min="0" step="0.1" value="2"></div>
+              <div class="field"><label for="ma30LimitDoge">DOGE MA30 最大偏離 (%)</label><input id="ma30LimitDoge" type="number" min="0" step="0.1" value="2"></div>
             </div>
           </section>
           <div class="field">
@@ -1448,78 +1168,77 @@
         </div>
       </form>
 
-      <section class="panel chart-panel" aria-label="BTCUSDT.P 15m K 線圖">
-        <h2>BTCUSDT.P 15m K 線圖</h2>
+      <section class="panel chart-panel" aria-label="K 線圖">
+        <h2 id="chartTitle">BTCUSDT.P 15m K 線圖</h2>
         <div class="kline-chart-shell">
           <div id="btcKlineChart"></div>
-          <div class="chart-empty" id="klineChartEmpty">按下「更新 BTC 數據」後顯示 15m K 線圖。</div>
+          <div class="chart-empty" id="klineChartEmpty">請更新數據以顯示 15m K 線圖。</div>
         </div>
       </section>
     </section>
 
     <section class="panel signal-panel">
-        <div class="signal-head">
-          <div>
-            <h2>盤面判斷</h2>
-            <div class="note-line" id="bufferHint">追價緩衝由左側欄位控制。</div>
-          </div>
-          <div class="decision">
-            <span>目前建議</span>
-            <strong id="tradeBias">等待</strong>
-            <p id="tradeReason">請輸入市場數據。</p>
-            <button class="btn primary" id="applySignalBtn" type="button" disabled>套用到交易 Checklist</button>
-          </div>
+      <div class="signal-head">
+        <div>
+          <h2>盤面判斷</h2>
+          <div class="note-line" id="bufferHint">追價緩衝：0.3%</div>
         </div>
-        <div class="mobile-market-actions">
-          <button class="btn primary update-market-mobile" type="button">更新 BTC 數據</button>
-          <button class="btn auto-update-toggle-mobile" type="button">自動更新：開</button>
-          <div class="auto-update-pill">
-            <span id="autoUpdateStateMobile">自動更新：開</span>
-            <strong id="autoUpdateCountdownMobile">下一次更新倒數：5 秒</strong>
-          </div>
-          <div class="market-status" id="marketUpdateStatusMobile">尚未自動更新。</div>
+        <div class="decision">
+          <span>目前建議</span>
+          <strong id="tradeBias">等待</strong>
+          <p id="tradeReason">請先更新市場數據。</p>
         </div>
+      </div>
+      <div class="mobile-market-actions">
+        <button class="btn primary update-market-mobile" type="button">更新數據</button>
+        <button class="btn auto-update-toggle-mobile" type="button">自動更新：開</button>
+        <div class="auto-update-pill">
+          <span id="autoUpdateStateMobile">自動更新：開</span>
+          <strong id="autoUpdateCountdownMobile">下一次更新倒數：5 秒</strong>
+        </div>
+        <div class="market-status" id="marketUpdateStatusMobile">等待自動更新</div>
+      </div>
 
-        <div class="signal-grid">
-          <div class="signal-card"><span>4H 趨勢</span><strong id="bias4h">等待資料</strong></div>
-          <div class="signal-card"><span>15m 趨勢</span><strong id="bias15m">等待資料</strong></div>
-          <div class="signal-card"><span>MA5 / MA10</span><strong id="maBias">等待資料</strong></div>
-          <div class="signal-card"><span>4H MA200</span><strong id="ma200Value">等待資料</strong></div>
-          <div class="signal-card"><span>MA200 狀態</span><strong id="ma200Trend">等待資料</strong></div>
-          <div class="signal-card"><span>距離 4H MA200</span><strong id="ma200Distance">等待資料</strong></div>
-        </div>
-        <div class="note-line" id="ma200Warning"></div>
+      <div class="signal-grid">
+        <div class="signal-card"><span>4H 趨勢</span><strong id="bias4h">資料不足</strong></div>
+        <div class="signal-card"><span>15m 趨勢</span><strong id="bias15m">資料不足</strong></div>
+        <div class="signal-card"><span>MA5 / MA10</span><strong id="maBias">資料不足</strong></div>
+        <div class="signal-card"><span>4H MA200</span><strong id="ma200Value">資料不足</strong></div>
+        <div class="signal-card"><span>MA200 狀態</span><strong id="ma200Trend">資料不足</strong></div>
+        <div class="signal-card"><span>距離 4H MA200</span><strong id="ma200Distance">資料不足</strong></div>
+      </div>
+      <div class="note-line" id="ma200Warning"></div>
 
-        <div class="analysis-grid" aria-label="v1.8 Entry Quality + RR 修正版分析模組">
-          <div class="analysis-card"><span>Volume Ratio</span><strong id="volumeStatus">資料不足</strong></div>
-          <div class="analysis-card"><span>ATR</span><strong id="atrStatus">資料不足</strong></div>
-          <div class="analysis-card"><span>MACD</span><strong id="macdStatus">資料不足</strong></div>
-          <div class="analysis-card"><span>盤勢 / 進場評分</span><strong id="entryQuality">資料不足</strong></div>
-          <div class="analysis-card"><span>最終判斷</span><strong id="finalSignal"><span class="signal-icon"></span>資料不足</strong></div>
-          <div class="analysis-card"><span>風險提醒</span><strong id="riskWarnings">資料不足</strong></div>
-          <div class="analysis-card wide"><span>交易建議</span><strong id="tradePlan">資料不足</strong></div>
-          <div class="analysis-card wide"><span>v1.10.0 狀態</span><strong id="analysisStatus">資料不足，無法計算完整分析</strong></div>
-        </div>
+      <div class="analysis-grid" aria-label="分析結果">
+        <div class="analysis-card"><span>Volume Ratio</span><strong id="volumeStatus">資料不足</strong></div>
+        <div class="analysis-card"><span>ATR</span><strong id="atrStatus">資料不足</strong></div>
+        <div class="analysis-card"><span>MACD</span><strong id="macdStatus">資料不足</strong></div>
+        <div class="analysis-card"><span>分數 / 訊號等級</span><strong id="entryQuality">資料不足</strong></div>
+        <div class="analysis-card"><span>最終判斷</span><strong id="finalSignal"><span class="signal-icon"></span>資料不足</strong></div>
+        <div class="analysis-card"><span>風險提醒</span><strong id="riskWarnings">資料不足</strong></div>
+        <div class="analysis-card wide"><span>交易建議</span><strong id="tradePlan">資料不足</strong></div>
+        <div class="analysis-card wide"><span>版本</span><strong id="analysisStatus">資料不足，無法完成分析</strong></div>
+      </div>
 
-        <div class="condition-grid">
-          <div class="condition-box">
-            <span>做多條件</span>
-            <strong id="longScore">0 / 4</strong>
-            <div class="condition-list" id="longConditions"></div>
-          </div>
-          <div class="condition-box">
-            <span>做空條件</span>
-            <strong id="shortScore">0 / 4</strong>
-            <div class="condition-list" id="shortConditions"></div>
-          </div>
+      <div class="condition-grid">
+        <div class="condition-box">
+          <span>做多條件</span>
+          <strong id="longScore">0 / 4</strong>
+          <div class="condition-list" id="longConditions"></div>
         </div>
+        <div class="condition-box">
+          <span>做空條件</span>
+          <strong id="shortScore">0 / 4</strong>
+          <div class="condition-list" id="shortConditions"></div>
+        </div>
+      </div>
     </section>
 
     <section class="panel signal-stats-panel" aria-label="訊號統計 / 回測追蹤">
       <div class="signal-stats-head">
         <div>
           <h2>訊號統計 / 回測追蹤</h2>
-          <div class="note-line" id="signalStatsStatus">尚未取得統計資料</div>
+          <div class="note-line" id="signalStatsStatus">正在讀取訊號統計資料</div>
           <div class="note-line">回測從下一根 15m K 開始統計，訊號當根 K 不列入。</div>
         </div>
         <button class="btn" id="refreshSignalStatsBtn" type="button">更新統計</button>
@@ -1552,191 +1271,18 @@
         </table>
       </div>
     </section>
-
-    <div class="section-title">
-      <h2>交易紀錄區</h2>
-      <span class="note-line">保留原本紀錄、搜尋、統計與匯出功能。</span>
-    </div>
-
-    <section class="stats" aria-label="交易統計">
-      <div class="stat"><span>總盈虧</span><strong id="totalPnl">$0.00</strong></div>
-      <div class="stat"><span>勝率</span><strong id="winRate">0%</strong></div>
-      <div class="stat"><span>交易筆數</span><strong id="tradeCount">0</strong></div>
-      <div class="stat"><span>平均 R/R</span><strong id="avgRr">0.00</strong></div>
-      <div class="stat"><span>最大連勝</span><strong id="maxWinStreak">0</strong></div>
-      <div class="stat"><span>最大連敗</span><strong id="maxLossStreak">0</strong></div>
-      <div class="stat"><span>目前連勝/連敗</span><strong id="currentStreak">0</strong></div>
-    </section>
-
-    <section class="layout">
-      <form class="panel form-panel" id="tradeForm">
-        <div class="panel-head">
-          <h2 id="formTitle">新增交易</h2>
-          <button class="collapse-btn" id="tradeCollapseBtn" type="button">收合</button>
-        </div>
-        <div class="form-body" id="tradeFormBody">
-          <input id="recordId" type="hidden">
-          <div class="grid">
-          <div class="field full">
-            <label for="date">日期時間</label>
-            <input id="date" name="date" type="datetime-local" required>
-          </div>
-          <div class="field">
-            <label for="side">方向</label>
-            <select id="side" name="side">
-              <option value="long">做多</option>
-              <option value="short">做空</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="leverage">槓桿</label>
-            <input id="leverage" name="leverage" type="number" min="1" step="1" value="10">
-          </div>
-          <div class="field">
-            <label for="entry">進場價</label>
-            <input id="entry" name="entry" type="number" min="0" step="0.01" required>
-          </div>
-          <div class="field">
-            <label for="exit">出場價</label>
-            <input id="exit" name="exit" type="number" min="0" step="0.01" required>
-          </div>
-          <div class="field">
-            <label for="quantity">倉位 BTC</label>
-            <input id="quantity" name="quantity" type="number" min="0" step="0.0001" required>
-          </div>
-          <div class="field">
-            <label for="fee">手續費 USDT</label>
-            <input id="fee" name="fee" type="number" min="0" step="0.01" value="0">
-          </div>
-          <div class="field">
-            <label for="risk">風險 USDT</label>
-            <input id="risk" name="risk" type="number" min="0" step="0.01" placeholder="選填">
-          </div>
-          <div class="field">
-            <label for="setup">策略</label>
-            <input id="setup" name="setup" type="text" placeholder="突破、回踩、對沖...">
-          </div>
-          <div class="field">
-            <label for="reason">交易結果原因</label>
-            <select id="reason" name="reason">
-              <option value="">未選擇</option>
-              <option value="完全照計畫">完全照計畫</option>
-              <option value="提前出場">提前出場</option>
-              <option value="FOMO追單">FOMO追單</option>
-              <option value="止損">止損</option>
-              <option value="沒設止損">沒設止損</option>
-              <option value="情緒交易">情緒交易</option>
-              <option value="報復單">報復單</option>
-              <option value="其他">其他</option>
-            </select>
-          </div>
-          <div class="field full">
-            <label for="note">備註</label>
-            <textarea id="note" name="note" placeholder="進場理由、情緒、是否照計畫執行..."></textarea>
-          </div>
-          <fieldset class="checklist">
-            <legend>交易前 Checklist</legend>
-            <div class="checklist-list">
-              <label class="check-item">
-                <input type="checkbox" class="precheck" id="check4h" name="check4h">
-                <span id="check4hText">4H 現價 &gt; MA30</span>
-              </label>
-              <label class="check-item">
-                <input type="checkbox" class="precheck" id="check15m" name="check15m">
-                <span id="check15mText">15m 現價 &gt; MA30</span>
-              </label>
-              <label class="check-item">
-                <input type="checkbox" class="precheck" id="checkMa5Ma10" name="checkMa5Ma10">
-                <span id="checkMa5Ma10Text">MA5 &gt; MA10</span>
-              </label>
-              <label class="check-item">
-                <input type="checkbox" class="precheck" id="checkNoChase" name="checkNoChase">
-                <span id="checkNoChaseText">沒有追在最近高點</span>
-              </label>
-              <label class="check-item">
-                <input type="checkbox" class="precheck" id="checkStopLoss" name="checkStopLoss">
-                <span>已設定止損</span>
-              </label>
-            </div>
-            <p class="check-hint" id="checkHint">五項全部打勾後才能儲存。</p>
-          </fieldset>
-          </div>
-          <div class="form-actions">
-            <button class="btn primary" type="submit" id="submitBtn">儲存</button>
-            <button class="btn" type="button" id="resetBtn">重設</button>
-          </div>
-        </div>
-      </form>
-
-      <section class="panel">
-        <div class="filters">
-          <input id="search" type="search" placeholder="搜尋策略、原因或備註">
-          <select id="sideFilter">
-            <option value="all">全部方向</option>
-            <option value="long">只看做多</option>
-            <option value="short">只看做空</option>
-          </select>
-          <select id="symbolFilter">
-            <option value="all">全部幣種</option>
-            <option value="BTC-USDT">BTC-USDT</option>
-            <option value="ETH-USDT">ETH-USDT</option>
-            <option value="SOL-USDT">SOL-USDT</option>
-            <option value="XRP-USDT">XRP-USDT</option>
-            <option value="DOGE-USDT">DOGE-USDT</option>
-          </select>
-          <select id="resultFilter">
-            <option value="all">全部結果</option>
-            <option value="win">獲利</option>
-            <option value="loss">虧損</option>
-            <option value="flat">打平</option>
-          </select>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th>幣種</th>
-                <th>方向</th>
-                <th>槓桿</th>
-                <th>進場 / 出場</th>
-                <th>倉位</th>
-                <th>手續費</th>
-                <th>盈虧</th>
-                <th>R/R</th>
-                <th>策略 / 原因 / 備註</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="records"></tbody>
-          </table>
-          <div class="empty" id="emptyState">還沒有交易紀錄。</div>
-        </div>
-        <div class="record-cards" id="recordCards"></div>
-      </section>
-    </section>
   </main>
-
   <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
   <script>
-    const storageKey = "btc-contract-journal-v1";
     const supportedSymbols = ["BTC-USDT", "ETH-USDT", "SOL-USDT", "XRP-USDT", "DOGE-USDT"];
     const symbolStorageKey = "btc-dashboard-current-symbol-v1";
     const telegramBotTokenKey = "telegramBotToken";
     const telegramChatIdKey = "telegramChatId";
-    const telegramNotifiedKey = "telegram-notified-signals-v1";
-    const telegramSignalStateKey = "telegram-signal-state-v1";
     const bingxApiProxyUrlKey = "bingx-api-proxy-url-v1";
-    const form = document.querySelector("#tradeForm");
-    const recordsEl = document.querySelector("#records");
-    const recordCardsEl = document.querySelector("#recordCards");
-    const emptyState = document.querySelector("#emptyState");
-    const fields = ["recordId", "date", "side", "leverage", "entry", "exit", "quantity", "fee", "risk", "setup", "reason", "note"];
     const marketFields = ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "recentHigh", "recentLow", "chaseBufferPercent", "minStopBtc", "minStopEth", "minStopSol", "minStopXrp", "cooldownMinutes", "ma30LimitBtc", "ma30LimitEth", "ma30LimitSol", "ma30LimitXrp", "ma30LimitDoge", "trendMode", "entryMode"];
     const tradeCooldownStorageKey = "trade-cooldown-until-v1";
     const marketStorageKeyBase = "btc-market-dashboard-v1";
     const layoutStorageKey = "btc-dashboard-layout-mode";
-    const checklistFields = ["check4h", "check15m", "checkMa5Ma10", "checkNoChase", "checkStopLoss"];
     let klineChart = null;
     let klineCandleSeries = null;
     let klineMaSeries = {};
@@ -1756,8 +1302,6 @@
     };
     let latestAdvancedAnalysis = null;
     let activeSymbol = "BTC-USDT";
-    let telegramScanTimer = null;
-    let isTelegramScanning = false;
 
     function currentSymbol() {
       const selected = document.querySelector("#symbolSelect")?.value || localStorage.getItem(symbolStorageKey) || "BTC-USDT";
@@ -1877,9 +1421,9 @@
       const chartPanel = document.querySelector(".chart-panel");
       if (chartPanel) chartPanel.setAttribute("aria-label", tvSymbol(symbol) + " 15m K 線圖");
       const chartEmpty = document.querySelector("#klineChartEmpty");
-      if (chartEmpty && !latestChartKlines.length) chartEmpty.textContent = "按下「更新 " + base + " 數據」後顯示 15m K 線圖。";
+      if (chartEmpty && !latestChartKlines.length) chartEmpty.textContent = "請更新 " + base + " 數據以顯示 15m K 線圖。";
       const quantityLabel = document.querySelector('label[for="quantity"]');
-      if (quantityLabel) quantityLabel.textContent = "倉位 " + base;
+      if (quantityLabel) quantityLabel.textContent = "數量 " + base;
       const symbolDebug = document.querySelector("#symbolDebug");
       if (symbolDebug) symbolDebug.textContent = "使用交易所：BingX｜使用 symbol：" + symbol + "｜原始顯示 symbol：" + tvSymbol(symbol);
     }
@@ -1913,6 +1457,32 @@
       };
     }
 
+    async function testTelegramNotification() {
+      saveTelegramSettings();
+      const { token, chatId } = telegramSettings();
+      if (!token || !chatId) {
+        setMarketStatus("請先填入 Telegram Bot Token 與 Chat ID。", true);
+        return;
+      }
+      try {
+        const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: "Telegram 通知測試成功",
+            disable_web_page_preview: true
+          })
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || payload?.ok === false) {
+          throw new Error(payload?.description || `Telegram HTTP ${response.status}`);
+        }
+        setMarketStatus("Telegram 測試通知已發送。");
+      } catch (error) {
+        setMarketStatus("Telegram 測試通知失敗：" + error.message, true);
+      }
+    }
     function loadBingxApiProxyUrl() {
       const input = document.querySelector("#bingxApiProxyUrl");
       if (input) input.value = localStorage.getItem(bingxApiProxyUrlKey) || "";
@@ -1949,304 +1519,6 @@
       const url = new URL(path, window.location.origin);
       Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
       return url;
-    }
-
-    function loadTelegramNotifiedSignals() {
-      try {
-        return new Set(JSON.parse(localStorage.getItem(telegramNotifiedKey)) || []);
-      } catch {
-        return new Set();
-      }
-    }
-
-    function saveTelegramNotifiedSignals(signals) {
-      localStorage.setItem(telegramNotifiedKey, JSON.stringify([...signals]));
-    }
-
-    function loadTelegramSignalStates() {
-      try {
-        return JSON.parse(localStorage.getItem(telegramSignalStateKey)) || {};
-      } catch {
-        return {};
-      }
-    }
-
-    function saveTelegramSignalStates(states) {
-      localStorage.setItem(telegramSignalStateKey, JSON.stringify(states));
-    }
-
-    function signalLevelRank(level) {
-      return { D: 0, C: 1, B: 2, A: 3, S: 4 }[level] ?? 0;
-    }
-
-    function signalModeKey(finalSignal) {
-      if (!finalSignal) return "none";
-      if (finalSignal.includes("突破做多") || finalSignal.includes("跌破做空")) return "breakout-confirmed";
-      if (finalSignal.includes("準備突破") || finalSignal.includes("準備跌破")) return "breakout-watch";
-      if (finalSignal.includes("接近")) return "near-watch";
-      if (finalSignal.includes("等回踩") || finalSignal.includes("等反彈")) return "pullback-watch";
-      if (finalSignal.includes("可小倉")) return "small-entry";
-      if (finalSignal.includes("可以做") || finalSignal.includes("強烈")) return "entry";
-      if (finalSignal.includes("盤整")) return "range-watch";
-      if (finalSignal.includes("不交易")) return "no-trade";
-      return finalSignal;
-    }
-
-    function signalStage(analysis) {
-      if (!analysis?.direction) return "等待";
-      if (analysis.signalLevel === "D") return "不交易";
-      if (analysis.canEnter && ["S", "A", "B"].includes(analysis.signalLevel)) return "確認訊號";
-      if (analysis.finalSignal?.includes("觀察") || analysis.finalSignal?.includes("接近") || analysis.finalSignal?.includes("等")) return "觀察中";
-      return "等待";
-    }
-
-    function shouldNotifySignal(symbol, analysis, price, states) {
-      if (analysis.cooldown?.active) return { notify: false, reason: "冷卻中，不推播" };
-      if (analysis.ma30Deviation?.overLimit) return { notify: false, reason: "偏離 MA30 過遠，不推播" };
-      if (analysis.stopLossTooSmall) return { notify: false, reason: "結構太小，不推播" };
-      if (analysis.chaseRisk) return { notify: false, reason: "追價風險，不推播" };
-      if (!analysis.direction || !["S", "A", "B"].includes(analysis.signalLevel)) {
-        return { notify: false, reason: analysis.signalLevel === "C" ? "C級不推播" : "D級或方向不明，不通知" };
-      }
-      const mode = signalModeKey(analysis.finalSignal);
-      const key = `${symbol}-${analysis.direction}-${mode}`;
-      const now = Date.now();
-      const previous = states[key];
-      if (!previous) return { notify: true, key, mode, reason: "新訊號" };
-
-      const elapsedMinutes = (now - previous.time) / 60000;
-      const priceChangePercent = Number.isFinite(previous.price) && previous.price > 0
-        ? Math.abs((price - previous.price) / previous.price) * 100
-        : 100;
-      const upgraded = signalLevelRank(analysis.signalLevel) > signalLevelRank(previous.level);
-      const directionChanged = analysis.direction !== previous.direction;
-      const breakoutConfirmed = analysis.breakoutReady && !previous.breakoutReady;
-
-      if (upgraded) return { notify: true, key, mode, reason: "訊號等級提升" };
-      if (directionChanged) return { notify: true, key, mode, reason: "方向改變" };
-      if (breakoutConfirmed) return { notify: true, key, mode, reason: "突破確認" };
-      if (priceChangePercent >= 0.3) return { notify: true, key, mode, reason: "價格變化超過 0.3%" };
-      if (elapsedMinutes >= 30) return { notify: true, key, mode, reason: "超過 30 分鐘" };
-
-      return { notify: false, key, mode, reason: "同一訊號冷卻中" };
-    }
-
-    function rememberSignalState(states, symbol, analysis, price, notifyDecision) {
-      if (!analysis.direction) return;
-      const mode = notifyDecision.mode || signalModeKey(analysis.finalSignal);
-      const key = notifyDecision.key || `${symbol}-${analysis.direction}-${mode}`;
-      states[key] = {
-        symbol,
-        direction: analysis.direction,
-        mode,
-        finalSignal: analysis.finalSignal,
-        level: analysis.signalLevel,
-        price,
-        time: Date.now(),
-        stage: analysis.signalStage,
-        breakoutReady: Boolean(analysis.breakoutReady)
-      };
-      states[symbol] = {
-        direction: analysis.direction,
-        mode,
-        finalSignal: analysis.finalSignal,
-        level: analysis.signalLevel,
-        price,
-        time: Date.now(),
-        stage: analysis.signalStage
-      };
-    }
-
-    function markSignalSeen(states, symbol, analysis, price, notifyDecision) {
-      if (!analysis.direction) return;
-      const mode = notifyDecision.mode || signalModeKey(analysis.finalSignal);
-      const key = notifyDecision.key || `${symbol}-${analysis.direction}-${mode}`;
-      const previous = states[key] || {};
-      states[key] = {
-        ...previous,
-        symbol,
-        direction: analysis.direction,
-        mode,
-        finalSignal: analysis.finalSignal,
-        level: analysis.signalLevel,
-        lastSeenPrice: price,
-        lastSeenTime: Date.now(),
-        stage: analysis.signalStage,
-        breakoutReady: Boolean(analysis.breakoutReady)
-      };
-      states[symbol] = {
-        ...(states[symbol] || {}),
-        direction: analysis.direction,
-        mode,
-        finalSignal: analysis.finalSignal,
-        level: analysis.signalLevel,
-        lastSeenPrice: price,
-        lastSeenTime: Date.now(),
-        stage: analysis.signalStage
-      };
-    }
-
-    function telegramSignalSymbol(key) {
-      return key.replace(/-(long|short)(-(entry|watch))?$/, "");
-    }
-
-    function telegramTimestamp() {
-      return new Date().toLocaleString("zh-TW", { hour12: false });
-    }
-
-    function telegramTradeSummary(analysis, basic) {
-      const sideLabel = analysis.direction === "long" ? "做多" : analysis.direction === "short" ? "做空" : "觀察";
-      const metrics = tradePlanMetrics(analysis.direction, basic);
-      const entryZone = analysis.direction === "long"
-        ? `${priceNumber(basic.price)} 附近，或回踩 15m MA10 ${priceNumber(basic.ma10)}`
-        : analysis.direction === "short"
-          ? `${priceNumber(basic.price)} 附近，或反彈 15m MA10 ${priceNumber(basic.ma10)}`
-          : `${priceNumber(basic.price)} 附近`;
-      const reason = [
-        analysis.finalSignal,
-        ...(analysis.riskWarnings || []).slice(0, 4)
-      ].join("｜");
-      return { sideLabel, metrics, entryZone, reason };
-    }
-
-    async function sendTelegramMessage(text) {
-      const { token, chatId } = telegramSettings();
-      if (!token || !chatId) throw new Error("請先填寫 Telegram Bot Token 與 Chat ID。");
-      const response = await fetch("https://api.telegram.org/bot" + token + "/sendMessage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          disable_web_page_preview: true
-        })
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok || payload?.ok === false) {
-        throw new Error(payload?.description || "Telegram 通知發送失敗。");
-      }
-      return payload;
-    }
-
-    async function testTelegramNotification() {
-      saveTelegramSettings();
-      const button = document.querySelector("#telegramTestBtn");
-      if (button) button.disabled = true;
-      try {
-        await sendTelegramMessage("Telegram 通知測試成功");
-        setMarketStatus("Telegram 通知測試成功");
-      } catch (error) {
-        setMarketStatus("Telegram 通知失敗：" + error.message, true);
-      } finally {
-        if (button) button.disabled = false;
-      }
-    }
-
-    function basicFromKlines(symbol, price, klines4h, klines15m) {
-      const last20of15m = klines15m.slice(-20);
-      const closedRecent15m = klines15m.slice(-21, -1);
-      const bufferPercent = Number(document.querySelector("#chaseBufferPercent")?.value) || 0.3;
-      const buffer = bufferPercent / 100;
-      const recentHigh = Math.max(...last20of15m.map((item) => item.high));
-      const recentLow = Math.min(...last20of15m.map((item) => item.low));
-      const previousRecentHigh = Math.max(...closedRecent15m.map((item) => item.high));
-      const previousRecentLow = Math.min(...closedRecent15m.map((item) => item.low));
-      return {
-        price,
-        ma4h: average(klines4h.slice(-30).map((item) => item.close)),
-        ma4h200: average(klines4h.slice(-200).map((item) => item.close)),
-        ma15m30: average(klines15m.slice(-30).map((item) => item.close)),
-        ma5: average(klines15m.slice(-5).map((item) => item.close)),
-        ma10: average(klines15m.slice(-10).map((item) => item.close)),
-        recentHigh,
-        recentLow,
-        previousRecentHigh,
-        previousRecentLow,
-        atr: atr14(klines15m),
-        notNearHigh: price < recentHigh * (1 - buffer),
-        notNearLow: price > recentLow * (1 + buffer),
-        symbol
-      };
-    }
-
-    function telegramNotificationText(symbol, analysis, basic, notifyDecision = null) {
-      const { sideLabel, metrics, entryZone, reason } = telegramTradeSummary(analysis, basic);
-      const bell = String.fromCodePoint(0x1F514);
-      const levelIcon = analysis.signalLevel === "S" ? "🔥🔥🔥" : analysis.signalLevel === "A" ? "🟢" : "🟡";
-      const bLevelNote = analysis.signalLevel === "B" ? "\n小倉觀察，不建議追價" : "";
-      const noTradeReasons = Array.isArray(analysis.nonTradeReasons) && analysis.nonTradeReasons.length
-        ? analysis.nonTradeReasons.map((item) => `- ${item}`).join("\n")
-        : "-";
-      const reminder = analysis.breakoutReady
-        ? "突破型訊號，小倉，不要重倉追。"
-        : "有行情，但不是最佳進場點，等待回踩或確認。";
-      const notifyReason = notifyDecision?.reason || "新訊號";
-      return `${levelIcon} ${analysis.signalLevel || "-"}級${sideLabel}
-
-${bell} ${symbol}
-
-${analysis.finalSignal}${bLevelNote}
-
-方向：${sideLabel}
-狀態：${analysis.signalStage || "等待"}
-訊號等級：${analysis.signalLevel || "-"}
-現價：${priceNumber(basic.price)}
-建議進場區間：${entryZone}
-止損：${Number.isFinite(metrics.stop) ? priceNumber(metrics.stop) : "-"}
-TP1：${Number.isFinite(metrics.tp1) ? priceNumber(metrics.tp1) : "-"}
-TP2：${Number.isFinite(metrics.tp2) ? priceNumber(metrics.tp2) : "-"}
-RR(TP1)：${Number.isFinite(analysis.rrDisplay) ? number(analysis.rrDisplay, 1) + "R" : "-"}
-RR(TP2)：${Number.isFinite(analysis.rrStretch) ? number(analysis.rrStretch, 1) + "R" : "-"}
-Market Score：${analysis.marketScore}/100
-Entry Quality：${analysis.entryScore}/100
-Momentum Score：${analysis.momentumScore ?? 0}/20
-不交易原因：
-${noTradeReasons}
-是否通知 Telegram：是
-通知原因：${notifyReason}
-提醒：${reminder}
-主要理由：${reason}
-
-時間：${telegramTimestamp()}`;
-    }
-
-    async function scanAllSymbolsForTelegram() {
-      const { token, chatId } = telegramSettings();
-      if (!token || !chatId || isTelegramScanning) return;
-      isTelegramScanning = true;
-      const states = loadTelegramSignalStates();
-      try {
-        for (const symbol of supportedSymbols) {
-          try {
-            const [klines4h, klines15m, priceResult] = await Promise.all([
-              fetchBingxFuturesKlines("4h", 300, symbol),
-              fetchBingxFuturesKlines("15m", 300, symbol),
-              fetchBingxCurrentPrice(symbol)
-            ]);
-            if (klines4h.length < 200 || klines15m.length < 220) continue;
-            const basic = basicFromKlines(symbol, priceResult.price, klines4h, klines15m);
-            const analysis = buildAdvancedAnalysis(klines15m, basic);
-            if (!analysis) continue;
-            const notifyDecision = shouldNotifySignal(symbol, analysis, basic.price, states);
-            if (notifyDecision.notify) {
-              rememberSignalState(states, symbol, analysis, basic.price, notifyDecision);
-              await sendTelegramMessage(telegramNotificationText(symbol, analysis, basic, notifyDecision));
-            } else {
-              markSignalSeen(states, symbol, analysis, basic.price, notifyDecision);
-            }
-          } catch (error) {
-            console.warn("Telegram scan skipped", symbol, error);
-          }
-        }
-        saveTelegramSignalStates(states);
-      } finally {
-        isTelegramScanning = false;
-      }
-    }
-
-    function queueTelegramScan() {
-      if (telegramScanTimer) clearTimeout(telegramScanTimer);
-      telegramScanTimer = setTimeout(scanAllSymbolsForTelegram, 800);
     }
 
     function chartTime(kline) {
@@ -2290,7 +1562,7 @@ ${noTradeReasons}
       if (!host) return;
       if (klineChart) return;
       if (!window.LightweightCharts) {
-        document.querySelector("#klineChartEmpty").textContent = "圖表套件載入失敗，請稍後重新整理。";
+        document.querySelector("#klineChartEmpty").textContent = "圖表套件載入失敗，請稍後再試。";
         return;
       }
 
@@ -2369,31 +1641,6 @@ ${noTradeReasons}
       resizeKlineChart();
       setTimeout(resizeKlineChart, 0);
     }
-    const checklistCopy = {
-      long: {
-        check4hText: "4H 現價 > MA30",
-        check15mText: "15m 現價 > MA30",
-        checkMa5Ma10Text: "MA5 > MA10",
-        checkNoChaseText: "沒有追在最近高點"
-      },
-      short: {
-        check4hText: "4H 現價 < MA30",
-        check15mText: "15m 現價 < MA30",
-        checkMa5Ma10Text: "MA5 < MA10",
-        checkNoChaseText: "沒有追在最近低點"
-      }
-    };
-    let trades = loadTrades();
-
-    function money(value) {
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }).format(value || 0);
-    }
-
     function setLayoutMode(mode) {
       const nextMode = ["auto", "desktop", "portrait"].includes(mode) ? mode : "auto";
       document.body.classList.remove("layout-auto", "layout-desktop", "layout-portrait");
@@ -2406,11 +1653,6 @@ ${noTradeReasons}
 
     function loadLayoutMode() {
       setLayoutMode(localStorage.getItem(layoutStorageKey) || "auto");
-    }
-
-    function setTradeCollapsed(collapsed) {
-      form.classList.toggle("collapsed", collapsed);
-      document.querySelector("#tradeCollapseBtn").textContent = collapsed ? "展開" : "收合";
     }
 
     function number(value, digits = 2) {
@@ -2429,62 +1671,6 @@ ${noTradeReasons}
         minimumFractionDigits: digits,
         maximumFractionDigits: digits
       });
-    }
-
-    function loadTrades() {
-      try {
-        return (JSON.parse(localStorage.getItem(storageKey)) || []).map((trade) => ({ symbol: trade.symbol || "BTC-USDT", ...trade }));
-      } catch {
-        return [];
-      }
-    }
-
-    function saveTrades() {
-      localStorage.setItem(storageKey, JSON.stringify(trades));
-    }
-
-    function pnlOf(trade) {
-      const direction = trade.side === "long" ? 1 : -1;
-      return ((trade.exit - trade.entry) * trade.quantity * direction) - trade.fee;
-    }
-
-    function rrOf(trade) {
-      const pnl = pnlOf(trade);
-      if (!trade.risk || trade.risk <= 0) return null;
-      return pnl / trade.risk;
-    }
-
-    function streakStats() {
-      const orderedTrades = [...trades].sort((a, b) => a.date.localeCompare(b.date));
-      let maxWin = 0;
-      let maxLoss = 0;
-      let currentType = null;
-      let currentCount = 0;
-
-      orderedTrades.forEach((trade) => {
-        const pnl = pnlOf(trade);
-        const type = pnl > 0 ? "win" : pnl < 0 ? "loss" : null;
-        if (!type) {
-          currentType = null;
-          currentCount = 0;
-          return;
-        }
-        if (type === currentType) {
-          currentCount += 1;
-        } else {
-          currentType = type;
-          currentCount = 1;
-        }
-        if (type === "win") maxWin = Math.max(maxWin, currentCount);
-        if (type === "loss") maxLoss = Math.max(maxLoss, currentCount);
-      });
-
-      return { maxWin, maxLoss, currentType, currentCount };
-    }
-
-    function formValue(id) {
-      const el = document.querySelector("#" + id);
-      return el.type === "number" ? Number(el.value || 0) : el.value.trim();
     }
 
     function marketValue(id) {
@@ -2528,50 +1714,16 @@ ${noTradeReasons}
 
     function buildSignalReason(decision, score, missingReasons, longMissingReasons, shortMissingReasons) {
       if (decision !== "等待") {
-        return `
-          ${decision}（${score}/4）<br>
-          <strong>缺少：</strong><br>
-          ${missingReasons.length ? missingReasons.map((reason) => `• ${reason}`).join("<br>") : "無"}
-        `;
+        const missing = missingReasons.length
+          ? missingReasons.map((reason) => `缺少：${reason}`).join("<br>")
+          : "條件完整";
+        return `${decision}（${score}/4）<br><strong>缺少：</strong><br>${missing}`;
       }
       return `
-        <strong>做多還缺：</strong>${longMissingReasons.join("、") || "無"}<br>
-        <strong>做空還缺：</strong>${shortMissingReasons.join("、") || "無"}
+        <strong>做多還缺：</strong>${longMissingReasons.join("、") || "-"}<br>
+        <strong>做空還缺：</strong>${shortMissingReasons.join("、") || "-"}
       `;
     }
-
-    function ma200Context(price, ma4h200) {
-      if (!Number.isFinite(price) || !Number.isFinite(ma4h200) || price <= 0 || ma4h200 <= 0) {
-        return {
-          available: false,
-          value: null,
-          trend: "neutral",
-          trendLabel: "等待資料",
-          distancePercent: null,
-          overLongLimit: false,
-          overShortLimit: false,
-          warning: ""
-        };
-      }
-      const distancePercent = ((price - ma4h200) / ma4h200) * 100;
-      const status = distancePercent > 10 ? "已漲多" : distancePercent < -10 ? "已跌深" : "正常";
-      const warning = distancePercent > 10
-        ? "提醒：避免追多"
-        : distancePercent < -10
-          ? "提醒：避免追空"
-          : "";
-      return {
-        available: true,
-        value: ma4h200,
-        trend: status,
-        trendLabel: status,
-        distancePercent,
-        overLongLimit: distancePercent > 15,
-        overShortLimit: distancePercent < -15,
-        warning
-      };
-    }
-
     function resolveBaseSignal() {
       return {
         decision: "等待",
@@ -2667,7 +1819,7 @@ ${noTradeReasons}
       const candles = raw.map(normalizeKline)
         .filter((item) => [item.open, item.high, item.low, item.close].every(Number.isFinite))
         .sort((a, b) => a.time - b.time);
-      if (!candles.length) throw new Error("BingX 沒有回傳可用 K 線資料。");
+      if (!candles.length) throw new Error("BingX 沒有可用的 K 線資料。");
       return candles;
     }
 
@@ -2699,14 +1851,14 @@ ${noTradeReasons}
         } catch {
           detail = "";
         }
-        throw new Error(`本地 BingX Proxy HTTP ${response.status}${detail}`);
+        throw new Error(`BingX Proxy HTTP ${response.status}${detail}`);
       }
       const payload = await response.json();
       const price = Number(payload.price ?? payload.data?.price ?? payload.data?.lastPrice ?? payload.data?.close);
-      if (!Number.isFinite(price)) throw new Error("本地 BingX Proxy 回傳格式不符合預期。");
+      if (!Number.isFinite(price)) throw new Error("本地 BingX Proxy 回傳價格格式不符合預期。");
       return {
         price,
-        source: payload.displaySource || "🟢 BingX Futures",
+        source: payload.displaySource || "? BingX Futures",
         exchange: payload.exchange || "BingX",
         symbol: payload.symbol || symbol,
         originalSymbol: payload.originalSymbol || tvSymbol(symbol)
@@ -2765,16 +1917,15 @@ ${noTradeReasons}
             <td>${signalOutcomeLabel(record)}</td>
           </tr>
         `).join("")
-        : `<tr><td colspan="10">尚無訊號紀錄</td></tr>`;
-      document.querySelector("#signalStatsStatus").textContent = `已更新：${new Date().toLocaleString("zh-TW", { hour12: false })}`;
+        : `<tr><td colspan="10">目前沒有訊號紀錄</td></tr>`;
+      document.querySelector("#signalStatsStatus").textContent = `最後更新：${new Date().toLocaleString("zh-TW", { hour12: false })}`;
     }
-
     async function refreshSignalStats() {
       try {
         renderSignalStats(await fetchSignalStats());
       } catch (error) {
-        document.querySelector("#signalStatsStatus").textContent = error.message || "訊號統計暫時無法讀取";
-        document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="10">訊號統計暫時無法讀取</td></tr>`;
+        document.querySelector("#signalStatsStatus").textContent = error.message || "訊號統計讀取失敗";
+        document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="10">訊號統計讀取失敗</td></tr>`;
       }
     }
 
@@ -2797,11 +1948,10 @@ ${noTradeReasons}
         return { percent: null, status: "資料不足", low: false, high: false, normal: false };
       }
       const percent = (atr / price) * 100;
-      if (percent < 0.12) return { percent, status: "波動不足，等待", low: true, high: false, normal: false };
+      if (percent < 0.12) return { percent, status: "波動不足", low: true, high: false, normal: false };
       if (percent > 1.2) return { percent, status: "高波動，降低倉位", low: false, high: true, normal: false };
       return { percent, status: "正常波動", low: false, high: false, normal: true };
     }
-
     function rsi14(values) {
       if (!Array.isArray(values) || values.length < 15) return null;
       let gains = 0;
@@ -2904,7 +2054,7 @@ ${noTradeReasons}
         ? previousHistogram !== undefined && latestHistogram <= previousHistogram ? "多頭動能減弱" : "多頭動能增強"
         : latestHistogram < 0
           ? previousHistogram !== undefined && Math.abs(latestHistogram) <= Math.abs(previousHistogram) ? "空頭動能減弱" : "空頭動能增強"
-          : "動能減弱";
+          : "動能中性";
       return {
         line: latestMacd,
         signal: latestSignal,
@@ -2919,18 +2069,13 @@ ${noTradeReasons}
         histogramStatus
       };
     }
-
-    function statusTone(status) {
-      if (status.includes("等待") || status.includes("B級") || status.includes("C級") || status.includes("小倉位") || status.includes("不值得") || status.includes("RR 不足")) return "flat";
-      if (status.includes("做多") || status.includes("放量") || status.includes("正常量")) return "win";
-      if (status.includes("做空")) return "loss";
-      if (status.includes("可小倉") || status.includes("接近做多") || status.includes("準備突破")) return "win";
-      if (status.includes("接近做空") || status.includes("準備跌破")) return "loss";
-      if (["偏多", "放量", "強烈做多", "正常波動", "高品質進場"].includes(status) || status.includes("偏多")) return "win";
-      if (["偏空", "強烈做空"].includes(status) || status.includes("偏空")) return "loss";
+    function statusTone(status = "") {
+      const text = String(status);
+      if (text.includes("做多") || text.includes("偏多") || text.includes("多頭") || text.includes("A級") || text.includes("S級")) return "win";
+      if (text.includes("做空") || text.includes("偏空") || text.includes("空頭")) return "loss";
+      if (text.includes("等待") || text.includes("觀察") || text.includes("B級") || text.includes("C級") || text.includes("不交易")) return "flat";
       return "flat";
     }
-
     function signalIcon(signal) {
       return "";
     }
@@ -3110,6 +2255,7 @@ ${noTradeReasons}
       if (direction === "short" && rsi < 12) hardBlockReasons.push("RSI oversold");
       if (atrInfo.high && atrInfo.percent > 1.8) hardBlockReasons.push("ATR extremely high");
       if (planMetrics.stopLossTooLarge) hardBlockReasons.push(`stop too wide ${number(planMetrics.stopLossPercent, 2)}%`);
+      if (consolidationTooLong) hardBlockReasons.push("consolidation too long");
       const hardBlocked = hardBlockReasons.length > 0;
       const totalScore = clampScore(trendScore + structureScore + momentumScore + entryScore + rrPart);
       let signalLevel = "D";
@@ -3117,11 +2263,11 @@ ${noTradeReasons}
       else if (!hardBlocked && totalScore >= 72 && trendScore >= 20 && momentumScore >= 12 && setup.setupType !== "none" && planMetrics.stopLossPercent <= planMetrics.maxStopLossPercent) signalLevel = "A";
       else if (!hardBlocked && totalScore >= 60) signalLevel = "B";
       const warnings = [];
-      if (ma30Deviation.overLimit) warnings.push(`MA30 deviation high ${number(ma30Deviation.percent, 2)}%`);
-      if (chaseRisk && setup.setupType !== "breakout") warnings.push("chase risk, wait for better entry");
-      if (planMetrics.stopLossTooLarge) warnings.push(`stop distance high ${number(planMetrics.stopLossPercent, 2)}%`);
-      if (setup.setupType === "none") warnings.push("setup not confirmed");
-      if (volumeRatio < 0.8) warnings.push(`volume weak ${number(volumeRatio, 2)}x`);
+      if (ma30Deviation.overLimit) warnings.push(`MA30 偏離過高 ${number(ma30Deviation.percent, 2)}%`);
+      if (chaseRisk && setup.setupType !== "breakout") warnings.push("追價風險，等待更好位置");
+      if (planMetrics.stopLossTooLarge) warnings.push(`止損距離偏大 ${number(planMetrics.stopLossPercent, 2)}%`);
+      if (setup.setupType === "none") warnings.push("進場型態尚未確認");
+      if (volumeRatio < 0.8) warnings.push(`量能偏弱 ${number(volumeRatio, 2)}x`);
       const canNotify = signalLevel === "S" || signalLevel === "A" || (signalLevel === "B" && totalScore >= 65 && planMetrics.rrDisplay >= 1.1);
       const finalSignal = signalLevel === "D" ? "不交易" : `${signalLevel}級${direction === "long" ? "做多" : "做空"}`;
       const macdResult = { ...macd, label: `${macd.status} + ${macd.histogramStatus}` };
@@ -3189,7 +2335,6 @@ ${noTradeReasons}
         symbol: basic.symbol || currentSymbol()
       };
     }
-
     function entryGrade(score) {
       if (score >= 80) return "A";
       if (score >= 60) return "B";
@@ -3198,10 +2343,11 @@ ${noTradeReasons}
     }
 
     function qualityLabel(score) {
-      if (score >= 80) return "A級機會，可以進場";
-      if (score >= 60) return "B級機會，可以做";
-      if (score >= 40) return "C級機會，小倉位、保守";
-      return "D級，等待，不值得做";
+      if (score >= 80) return "A級：高品質進場";
+      if (score >= 60) return "B級：可以觀察";
+      if (score >= 40) return "C級：普通，等更好位置";
+      if (score >= 20) return "D級：偏弱，不建議急著進";
+      return "D級：不建議進場";
     }
 
     function entryQualityScore(side, context) {
@@ -3209,11 +2355,11 @@ ${noTradeReasons}
         return {
           score: 0,
           grade: "D",
-          label: "D級，等待",
+          label: "D級：等待",
           bonusReasons: [],
-          warningReasons: ["核心方向不明確"],
+          warningReasons: ["方向不明"],
           penaltyReasons: [],
-          hardBlocks: ["direction 不明"]
+          hardBlocks: ["direction unclear"]
         };
       }
 
@@ -3240,35 +2386,24 @@ ${noTradeReasons}
       const rsiValue = Number.isFinite(context.rsi) ? context.rsi : null;
       const rsiNormal = rsiValue !== null && rsiValue >= 30 && rsiValue <= 70;
       const volumeNormal = context.volumeRatio >= 0.8;
-      const chaseDistance = isLong ? context.highDistancePercent : context.lowDistancePercent;
-      const hardChase = Number.isFinite(chaseDistance) && chaseDistance < 0.3;
+      const atrNormal = context.atrInfo?.normal;
 
       if (ma4hOk) add(25, "4H 趨勢同方向");
       if (ma15mOk) add(20, "15m 趨勢同方向");
       if (maFastOk) add(15, "MA5/MA10 同方向");
-      if (macdOk) add(10, isLong ? "MACD 金叉同方向" : "MACD 死叉同方向");
-      else if (macdMomentumOk) add(7, isLong ? "MACD 動能提前轉多" : "MACD 動能提前轉空");
-      if (rsiNormal) add(10, "RSI 正常");
-      if (volumeNormal) add(10, "Volume Ratio 正常");
-      if (context.atrInfo.normal) add(10, "ATR 正常");
+      if (macdOk) add(15, "MACD 同方向且有效");
+      else if (macdMomentumOk) add(10, "MACD 動能轉強/轉弱");
+      if (volumeNormal) add(10, "量能正常");
+      if (atrNormal) add(10, "ATR 正常");
+      if (rsiNormal) add(5, "RSI 正常");
 
-      if (rsiValue !== null && rsiValue > 70) warn("RSI 超買，避免追高");
-      if (rsiValue !== null && rsiValue < 30) warn("RSI 超賣，避免追低");
-      if (!macdOk && macdMomentumOk) warn("MACD 尚未交叉，但 Histogram 動能已提前轉向");
-      else if (!macdOk && context.macd.crossType !== "neutral") warn("MACD 未同方向，只能當提醒");
-      if (context.volumeRatio < 0.8) warn("量能不足，訊號可信度下降");
-      if (context.atrInfo.low) warn("ATR 波動不足，行情可能走不動");
-      if (context.atrInfo.high) warn("ATR 高波動，降低倉位、止損放寬");
-      if (hardChase) warn(isLong ? "接近高點，避免市價追單，等待回踩" : "接近低點，避免市價追單，等待反彈");
-      if (Number.isFinite(context.rr) && context.rr >= 0.6 && context.rr < 1.2) warn("RR 偏低，只能小倉");
+      if (rsiValue !== null && rsiValue > 70) warn("RSI 超買，避免追多");
+      if (rsiValue !== null && rsiValue < 30) warn("RSI 超賣，避免追空");
+      if (!volumeNormal) warn("量能偏低，訊號可信度下降");
+      if (context.atrInfo?.low) warn("ATR 波動不足");
+      if (context.atrInfo?.high) warn("ATR 高波動，降低倉位");
 
-      if (Number.isFinite(context.rr) && context.rr < 0.6) hardBlocks.push("RR < 0.6");
-      if (!Number.isFinite(context.rr)) warn("RR 資料不足");
-      if (isLong && rsiValue !== null && rsiValue > 88) hardBlocks.push("多單 RSI > 88");
-      if (!isLong && rsiValue !== null && rsiValue < 12) hardBlocks.push("空單 RSI < 12");
-      if (context.volumeRatio < 0.2) hardBlocks.push("量能極低 volumeRatio < 0.2");
-
-      const finalScore = Math.min(100, Math.max(0, Math.round(score)));
+      const finalScore = clampScore(score);
       return {
         score: finalScore,
         grade: entryGrade(finalScore),
@@ -3279,545 +2414,11 @@ ${noTradeReasons}
         hardBlocks
       };
     }
-
-    function tradePlanMetrics(side, basic) {
-      if (!side || !Number.isFinite(basic.price)) return { rr: null };
-      const atr = Number.isFinite(basic.atr) ? basic.atr : null;
-      const breakoutThreshold = getBreakoutThreshold(basic.symbol);
-      const longBreakout = side === "long"
-        && Number.isFinite(basic.previousRecentHigh)
-        && basic.price > basic.previousRecentHigh * (1 + breakoutThreshold);
-      const shortBreakout = side === "short"
-        && Number.isFinite(basic.previousRecentLow)
-        && basic.price < basic.previousRecentLow * (1 - breakoutThreshold);
-      if (longBreakout && Number.isFinite(atr) && atr > 0) {
-        const stop = Math.max(basic.ma10, basic.previousRecentHigh) * 0.997;
-        const tp1 = basic.price + atr * 1.2;
-        const tp2 = basic.price + atr * 2;
-        const risk = Math.abs(basic.price - stop);
-        const reward = Math.abs(tp1 - basic.price);
-        return withStopLossCheck({ stop, tp1, tp2, rr: risk > 0 ? reward / risk : null, breakout: true }, basic);
-      }
-      if (shortBreakout && Number.isFinite(atr) && atr > 0) {
-        const stop = Math.min(basic.ma10, basic.previousRecentLow) * 1.003;
-        const tp1 = basic.price - atr * 1.2;
-        const tp2 = basic.price - atr * 2;
-        const risk = Math.abs(stop - basic.price);
-        const reward = Math.abs(basic.price - tp1);
-        return withStopLossCheck({ stop, tp1, tp2, rr: risk > 0 ? reward / risk : null, breakout: true }, basic);
-      }
-      if (side === "long") {
-        const stop = Math.min(basic.recentLow, basic.ma10) * 0.999;
-        const tp1 = basic.recentHigh;
-        const tp2 = basic.recentHigh * 1.004;
-        const risk = Math.abs(basic.price - stop);
-        const reward = Math.abs(tp1 - basic.price);
-        return withStopLossCheck({ stop, tp1, tp2, rr: risk > 0 ? reward / risk : null }, basic);
-      }
-      const stop = Math.max(basic.recentHigh, basic.ma10) * 1.001;
-      const tp1 = basic.recentLow;
-      const tp2 = basic.recentLow * 0.996;
-      const risk = Math.abs(stop - basic.price);
-      const reward = Math.abs(basic.price - tp1);
-      return withStopLossCheck({ stop, tp1, tp2, rr: risk > 0 ? reward / risk : null }, basic);
-    }
-
-    function buildTradePlan(side, basic) {
-      if (!side || !Number.isFinite(basic.price)) return "等待，方向不明確。";
-      const rrLabel = (rr) => {
-        if (!Number.isFinite(rr)) return "RR 資料不足";
-        if (rr >= 2) return "RR 優秀";
-        if (rr >= 1.5) return "RR 合格";
-        if (rr >= 1.2) return "RR 普通，需小倉";
-        if (rr >= 0.6) return "RR 偏低，只能小倉";
-        return "RR 不足，禁止進場";
-      };
-      const rrTone = (rr) => {
-        if (!Number.isFinite(rr) || rr < 0.6) return "loss";
-        if (rr < 1.5) return "flat";
-        return "win";
-      };
-      const rrLine = (rr) => `<span class="${rrTone(rr)}">RR：${Number.isFinite(rr) ? number(rr, 2) : "-"}｜${rrLabel(rr)}</span>`;
-      const lowRrHint = (rr) => Number.isFinite(rr) && rr < 1.2
-        ? rr >= 0.6 ? "RR 偏低，只能小倉。" : "RR 不足，禁止進場。"
-        : "";
-      const stopLossLine = (metrics) => {
-        if (!Number.isFinite(metrics.stopLossPercent)) return "";
-        const distance = number(metrics.stopLossPercent, 2);
-        const minimum = number(metrics.minStopLossPercent, 2);
-        const warning = metrics.stopLossTooSmall
-          ? `<br><span class="loss">⚠ 結構太小，不建議交易</span><br><span class="loss">⚠ 止損距離過小｜止損距離不足（${distance}% < ${minimum}%）</span>`
-          : "";
-        return `<span class="${metrics.stopLossTooSmall ? "loss" : "flat"}">止損距離：${distance}%</span>${warning}`;
-      };
-      const metrics = tradePlanMetrics(side, basic);
-      if (side === "long") {
-        const { stop, tp1, tp2, rr } = metrics;
-        const tpClass = (!Number.isFinite(rr) || rr < 1.2) ? "tp-muted" : "";
-        return [
-          `建議進場：目前現價附近，或回踩到 15m MA10（${priceNumber(basic.ma10)}）`,
-          `建議止損：最近低點下方，或 MA10 下方（約 ${priceNumber(stop)}）`,
-          stopLossLine(metrics),
-          lowRrHint(rr),
-          `<span class="${tpClass}">TP1：最近高點 ${priceNumber(tp1)}</span>`,
-          `<span class="${tpClass}">TP2：最近高點上方 0.3%～0.5%（約 ${priceNumber(tp2)}）</span>`,
-          rrLine(rr)
-        ].filter(Boolean).join("<br>");
-      }
-      const { stop, tp1, tp2, rr } = metrics;
-      const tpClass = (!Number.isFinite(rr) || rr < 1.2) ? "tp-muted" : "";
-      return [
-        `建議進場：目前現價附近，或反彈到 15m MA10（${priceNumber(basic.ma10)}）`,
-        `建議止損：最近高點上方，或 MA10 上方（約 ${priceNumber(stop)}）`,
-        stopLossLine(metrics),
-        lowRrHint(rr),
-        `<span class="${tpClass}">TP1：最近低點 ${priceNumber(tp1)}</span>`,
-        `<span class="${tpClass}">TP2：最近低點下方 0.3%～0.5%（約 ${priceNumber(tp2)}）</span>`,
-        rrLine(rr)
-      ].filter(Boolean).join("<br>");
-    }
-
     function scoreAdvancedAnalysis(analysis, basic) {
-      const { volumeRatio, macd, atr, rsi, priceSlope = 0, consolidationTooLong = false } = analysis;
-      const ma200 = ma200Context(basic.price, basic.ma4h200);
-      const atrInfo = atrState(atr, basic.price);
-      const trendMode = document.querySelector("#trendMode").value || "trend";
-      const entryMode = document.querySelector("#entryMode")?.value || "aggressive";
-      const modeLabel = entryMode === "conservative" ? "保守" : "積極";
-      const highDistancePercent = Number.isFinite(basic.recentHigh) && basic.recentHigh > 0
-        ? ((basic.recentHigh - basic.price) / basic.recentHigh) * 100
-        : null;
-      const lowDistancePercent = Number.isFinite(basic.recentLow) && basic.recentLow > 0
-        ? ((basic.price - basic.recentLow) / basic.recentLow) * 100
-        : null;
-      const cooldown = getCooldownState();
-      const ma30Deviation = ma30DeviationContext(basic.price, basic.ma15m30, basic.symbol || currentSymbol());
-      const macdFresh = macd.crossAge !== null && macd.crossAge <= 8;
-      const isBullEnvironment = basic.price > basic.ma4h && basic.price > basic.ma15m30;
-      const isBearEnvironment = basic.price < basic.ma4h && basic.price < basic.ma15m30;
-      const marketEnvironment = isBullEnvironment ? "bull" : isBearEnvironment ? "bear" : "mixed";
-      const majorTrend = Number.isFinite(basic.ma4h200)
-        ? basic.price > basic.ma4h200 ? "偏多" : basic.price < basic.ma4h200 ? "偏空" : "盤整"
-        : "盤整";
-      const scoredBasic = { ...basic, atr };
-      const symbol = basic.symbol || currentSymbol();
-      const breakoutThreshold = getBreakoutThreshold(symbol);
-      const longBreakout = Number.isFinite(basic.previousRecentHigh) && basic.price > basic.previousRecentHigh * (1 + breakoutThreshold);
-      const shortBreakout = Number.isFinite(basic.previousRecentLow) && basic.price < basic.previousRecentLow * (1 - breakoutThreshold);
-      const longEarlyBreakout = Number.isFinite(basic.previousRecentHigh)
-        && basic.price > basic.previousRecentHigh * 0.9995
-        && volumeRatio >= 0.9
-        && basic.ma5 > basic.ma10;
-      const shortEarlyBreakout = Number.isFinite(basic.previousRecentLow)
-        && basic.price < basic.previousRecentLow * 1.0005
-        && volumeRatio >= 0.9
-        && basic.ma5 < basic.ma10;
-      const maSpread = Number.isFinite(basic.ma10) && basic.ma10 > 0 ? Math.abs(basic.ma5 - basic.ma10) / basic.ma10 : null;
-      const macdGap = Number.isFinite(macd.signal) && macd.signal !== 0 ? Math.abs(macd.line - macd.signal) / Math.abs(macd.signal) : null;
-      const priceNearHigh = Number.isFinite(basic.previousRecentHigh) && basic.previousRecentHigh > 0
-        && basic.price >= basic.previousRecentHigh * (1 - breakoutThreshold * 1.5);
-      const priceNearLow = Number.isFinite(basic.previousRecentLow) && basic.previousRecentLow > 0
-        && basic.price <= basic.previousRecentLow * (1 + breakoutThreshold * 1.5);
-      const maAlmostCrossLong = maSpread !== null && maSpread < 0.0015 && basic.ma5 <= basic.ma10;
-      const maAlmostCrossShort = maSpread !== null && maSpread < 0.0015 && basic.ma5 >= basic.ma10;
-      const macdAlmostBull = (macd.crossType !== "golden" && macd.line <= macd.signal && macdGap !== null && macdGap < 0.12) || macd.histogramGrowing || macd.histogramNearBullFlip;
-      const macdAlmostBear = (macd.crossType !== "death" && macd.line >= macd.signal && macdGap !== null && macdGap < 0.12) || macd.histogramFalling || macd.histogramNearBearFlip;
-      const longBiasContext = isBullEnvironment || (marketEnvironment === "mixed" && (majorTrend === "偏多" || basic.ma5 > basic.ma10));
-      const shortBiasContext = isBearEnvironment || (marketEnvironment === "mixed" && (majorTrend === "偏空" || basic.ma5 < basic.ma10));
-      const nearLongSignal = longBiasContext && volumeRatio >= 0.8 && (maAlmostCrossLong || priceNearHigh || macdAlmostBull || (Number.isFinite(rsi) && rsi >= 50 && rsi <= 58));
-      const nearShortSignal = shortBiasContext && volumeRatio >= 0.8 && (maAlmostCrossShort || priceNearLow || macdAlmostBear || (Number.isFinite(rsi) && rsi <= 50 && rsi >= 42));
-      const longConditions = [
-        isBullEnvironment,
-        basic.ma5 > basic.ma10,
-        macd.crossType === "golden" && macdFresh,
-        basic.notNearHigh
-      ];
-      const shortConditions = [
-        isBearEnvironment,
-        basic.ma5 < basic.ma10,
-        macd.crossType === "death" && macdFresh,
-        basic.notNearLow
-      ];
-      const longScore = longConditions.filter(Boolean).length;
-      const shortScore = shortConditions.filter(Boolean).length;
-      const macdLongChaseRisk = highDistancePercent !== null && highDistancePercent < 0.3;
-      const macdShortChaseRisk = lowDistancePercent !== null && lowDistancePercent < 0.3;
-      let macdBullBonus = 0;
-      let macdBearBonus = 0;
-      let macdNote = "";
-
-      if (macd.crossType === "golden") {
-        if (!isBullEnvironment) macdNote = isBearEnvironment ? "MACD 金叉，但大方向仍偏空，僅視為短線反彈" : "MACD 金叉，但 4H 與 15m 尚未一致";
-        else if (!macdFresh) macdNote = "MACD 訊號已過久，僅供參考";
-        else if (macdLongChaseRisk) macdNote = "MACD 金叉，但已接近高點，不建議追多";
-        else macdBullBonus = 8;
-      } else if (macd.crossType === "death") {
-        if (!isBearEnvironment) macdNote = isBullEnvironment ? "MACD 死叉，但大方向仍偏多，僅視為短線轉弱" : "MACD 死叉，但 4H 與 15m 尚未一致";
-        else if (!macdFresh) macdNote = "MACD 訊號已過久，僅供參考";
-        else if (macdShortChaseRisk) macdNote = "MACD 死叉，但已接近低點，不建議追空";
-        else macdBearBonus = 8;
-      }
-
-      const macdLabel = `${macd.status} + ${macd.histogramStatus}`;
-      const macdResult = { ...macd, label: macdLabel, note: macdNote, bullBonus: macdBullBonus, bearBonus: macdBearBonus, fresh: macdFresh };
-
-      let direction = null;
-      let environmentReason = "";
-      if (isBullEnvironment) {
-        direction = "long";
-        if (basic.ma5 < basic.ma10 || macd.crossType === "death") {
-          environmentReason = "短線轉弱，但大方向仍偏多，等待回踩或方向一致";
-        }
-      } else if (isBearEnvironment) {
-        direction = "short";
-        if (basic.ma5 > basic.ma10 || macd.crossType === "golden") {
-          environmentReason = "短線反彈，但大方向仍偏空，等待反彈結束或方向一致";
-        }
-      } else {
-        if (nearLongSignal || (majorTrend === "偏多" && basic.ma5 >= basic.ma10)) {
-          direction = "long";
-          environmentReason = "盤整偏多，突破前觀察，不是正式進場";
-        } else if (nearShortSignal || (majorTrend === "偏空" && basic.ma5 <= basic.ma10)) {
-          direction = "short";
-          environmentReason = "盤整偏空，跌破前觀察，不是正式進場";
-        } else {
-          environmentReason = "方向混亂，等待 4H 與 15m 一致";
-        }
-      }
-      const planMetrics = tradePlanMetrics(direction, scoredBasic);
-      const entryDetails = entryQualityScore(direction, {
-        ...basic,
-        atrInfo,
-        macd,
-        macdFresh,
-        volumeRatio,
-        rsi,
-        ma200,
-        rr: planMetrics.rr,
-        highDistancePercent,
-        lowDistancePercent
-      });
-      let momentumScore = 0;
-      if (direction === "long") {
-        momentumScore += basic.ma5 > basic.ma10 ? 25 : basic.price > basic.ma15m30 ? 12 : maAlmostCrossLong ? 8 : 4;
-        momentumScore += macd.crossType === "golden" ? 25 : (macd.histogramGrowing || macd.histogramNearBullFlip) ? 16 : macd.crossType !== "death" ? 8 : 0;
-        momentumScore += rsi > 55 && rsi < 75 ? 20 : rsi > 45 && rsi < 85 ? 12 : 4;
-        momentumScore += volumeRatio >= 1.2 ? 15 : volumeRatio >= 0.8 ? 10 : volumeRatio >= 0.5 ? 5 : 0;
-        momentumScore += priceSlope > 0.25 ? 15 : priceSlope > 0 ? 8 : 3;
-      } else if (direction === "short") {
-        momentumScore += basic.ma5 < basic.ma10 ? 25 : basic.price < basic.ma15m30 ? 12 : maAlmostCrossShort ? 8 : 4;
-        momentumScore += macd.crossType === "death" ? 25 : (macd.histogramFalling || macd.histogramNearBearFlip) ? 16 : macd.crossType !== "golden" ? 8 : 0;
-        momentumScore += rsi < 45 && rsi > 25 ? 20 : rsi < 55 && rsi > 15 ? 12 : 4;
-        momentumScore += volumeRatio >= 1.2 ? 15 : volumeRatio >= 0.8 ? 10 : volumeRatio >= 0.5 ? 5 : 0;
-        momentumScore += priceSlope < -0.25 ? 15 : priceSlope < 0 ? 8 : 3;
-      }
-      momentumScore = Math.max(0, Math.min(100, Math.round(momentumScore)));
-      const marketScore = entryDetails.score;
-      const marketGrade = entryDetails.grade;
-      const stopLossTooSmall = Boolean(planMetrics.stopLossTooSmall);
-      const hardBlockReasons = [...entryDetails.hardBlocks];
-      if (stopLossTooSmall) {
-        hardBlockReasons.push(`止損距離不足（${number(planMetrics.stopLossPercent, 2)}% < ${number(planMetrics.minStopLossPercent, 2)}%）`);
-      }
-      if (cooldown.active) {
-        hardBlockReasons.push(`冷卻中，剩餘 ${cooldown.remainingMinutes} 分鐘`);
-      }
-      if (ma30Deviation.overLimit) {
-        hardBlockReasons.push(`距離 MA30 過遠（${number(ma30Deviation.percent, 2)}% > ${number(ma30Deviation.limit, 2)}%）`);
-      }
-      const hardBlocked = hardBlockReasons.length > 0;
-      const rhythmAligned = direction === "long" ? basic.ma5 > basic.ma10 : direction === "short" ? basic.ma5 < basic.ma10 : false;
-      const macdDirectionAllowed = direction === "long" ? macd.crossType !== "death" : direction === "short" ? macd.crossType !== "golden" : false;
-      const setupReady = rhythmAligned && macdDirectionAllowed;
-      const longBreakoutReady = direction === "long"
-        && longBreakout
-        && marketEnvironment === "bull"
-        && basic.ma5 > basic.ma10
-        && volumeRatio >= 1.0
-        && Number.isFinite(rsi)
-        && rsi < 85
-        && macd.crossType !== "death";
-      const shortBreakoutReady = direction === "short"
-        && shortBreakout
-        && marketEnvironment === "bear"
-        && basic.ma5 < basic.ma10
-        && volumeRatio >= 1.0
-        && Number.isFinite(rsi)
-        && rsi > 15
-        && macd.crossType !== "golden";
-      const breakoutReady = (longBreakoutReady || shortBreakoutReady) && !hardBlocked;
-      const baseEntryScore = hardBlocked || !direction ? 0 : marketScore;
-      const mixedObservation = marketEnvironment === "mixed";
-      const entryScore = hardBlocked || !direction
-        ? 0
-        : breakoutReady
-          ? Math.max(baseEntryScore, 70)
-          : mixedObservation
-            ? Math.min(baseEntryScore, 59)
-            : baseEntryScore;
-      const entryGrade = hardBlocked ? "Hard Block" : entryScore === 0 ? "等待" : entryScore >= 90 ? "A" : entryScore >= 70 ? "B" : entryScore >= 50 ? "C" : marketGrade;
-      const rrTradable = Number.isFinite(planMetrics.rr) && planMetrics.rr >= 1.2;
-      const rrSmallOnly = Number.isFinite(planMetrics.rr) && planMetrics.rr >= 0.6 && planMetrics.rr < 1.2;
-      const severeScoreConflict = marketScore >= 75 && momentumScore < 20;
-      const againstMajorTrend = (direction === "long" && majorTrend === "偏空") || (direction === "short" && majorTrend === "偏多");
-      const longRsiOverheated = direction === "long" && Number.isFinite(rsi) && rsi > 88;
-      const shortRsiOversold = direction === "short" && Number.isFinite(rsi) && rsi < 12;
-      const trendAligned = (direction === "long" && marketEnvironment === "bull") || (direction === "short" && marketEnvironment === "bear");
-      const maStackAligned = direction === "long"
-        ? basic.ma5 > basic.ma10 && basic.ma10 > basic.ma15m30
-        : direction === "short"
-          ? basic.ma5 < basic.ma10 && basic.ma10 < basic.ma15m30
-          : false;
-      const notChasing = direction === "long" ? basic.notNearHigh : direction === "short" ? basic.notNearLow : false;
-      const waitingPullback = Boolean(environmentReason) || mixedObservation || (!breakoutReady && (longEarlyBreakout || shortEarlyBreakout));
-      const riskWarningForGrade = hardBlocked
-        || rrSmallOnly
-        || consolidationTooLong
-        || severeScoreConflict
-        || atrInfo.low
-        || atrInfo.high
-        || againstMajorTrend
-        || Boolean(ma200.warning)
-        || volumeRatio < 0.8
-        || entryDetails.warningReasons.length > 0
-        || Boolean(macdNote);
-      const sQualified = trendAligned
-        && maStackAligned
-        && momentumScore >= 80
-        && marketScore >= 80
-        && Number.isFinite(planMetrics.rr)
-        && planMetrics.rr >= 2.5
-        && notChasing
-        && !waitingPullback
-        && !riskWarningForGrade;
-      let signalLevel = "C";
-      if (sQualified && !cooldown.active && !ma30Deviation.overLimit) {
-        signalLevel = "S";
-      } else if (hardBlocked || consolidationTooLong || !Number.isFinite(planMetrics.rr) || planMetrics.rr < 0.6 || marketScore < 65 || momentumScore < 20 || severeScoreConflict) {
-        signalLevel = "D";
-      } else if (trendAligned && !waitingPullback && notChasing && planMetrics.rr >= 1.5 && marketScore >= 80 && momentumScore >= 60) {
-        signalLevel = "A";
-      } else if (trendAligned && planMetrics.rr >= 0.6 && marketScore >= 75 && momentumScore >= 40) {
-        signalLevel = "B";
-      }
-      const earlyBreakoutWatch = !breakoutReady
-        && !hardBlocked
-        && ((marketEnvironment === "bull" && longEarlyBreakout) || (marketEnvironment === "bear" && shortEarlyBreakout));
-      const modeAllowsLevel = entryMode === "conservative" ? ["S", "A"].includes(signalLevel) : ["S", "A", "B"].includes(signalLevel);
-      const canEnter = !mixedObservation
-        && !earlyBreakoutWatch
-        && rrTradable
-        && modeAllowsLevel
-        && !hardBlocked
-        && !cooldown.active
-        && !ma30Deviation.overLimit
-        && ((setupReady && !environmentReason) || breakoutReady);
-      const directionScore = direction === "long" ? longScore : direction === "short" ? shortScore : 0;
-      const sideLabel = direction === "long" ? "做多" : direction === "short" ? "做空" : "等待";
-      const entryPermissionText = marketEnvironment === "mixed"
-        ? "等待方向"
-        : cooldown.active
-          ? "🧊 冷卻中，暫停交易"
-        : ma30Deviation.overLimit
-          ? "⚠ 偏離 MA30 過遠，等待回踩"
-        : stopLossTooSmall
-          ? "⚠ 結構太小，不建議交易"
-        : hardBlocked
-          ? "❌ 禁止進場"
-          : signalLevel === "S"
-            ? "⭐ S級機會，高品質訊號，可重點關注"
-          : canEnter
-          ? "✅ 可以進場"
-          : rrSmallOnly
-            ? "⚠️ RR 偏低，只允許觀察 / 小倉"
-          : Number.isFinite(planMetrics.rr) && planMetrics.rr < 0.6
-            ? "❌ RR 小於 0.6，禁止進場"
-          : signalLevel === "B"
-            ? "⚠️ 可小倉嘗試，不要重倉"
-          : signalLevel === "C" && marketScore >= 50
-            ? "👀 觀察，不是進場"
-          : marketScore >= 80 && direction
-            ? "⚠️ 有行情，但不是最佳進場點"
-            : "觀望";
-      let finalSignal = "觀望";
-
-      if (cooldown.active) finalSignal = "🧊 冷卻中，暫停交易";
-      else if (ma30Deviation.overLimit) finalSignal = "⚠ 偏離 MA30 過遠，等待回踩";
-      else if (longRsiOverheated) finalSignal = "⚠️ 過熱，等待回踩";
-      else if (shortRsiOversold) finalSignal = "⚠️ 超跌，等待反彈";
-      else if (stopLossTooSmall) finalSignal = "⚠ 結構太小，不建議交易";
-      else if (consolidationTooLong) finalSignal = "橫盤過久，不建議交易";
-      else if (signalLevel === "S") finalSignal = "⭐ S級機會";
-      else if (signalLevel === "D") finalSignal = "不交易";
-      else if (longBreakoutReady && canEnter && ["A", "B"].includes(signalLevel)) finalSignal = "🚀 突破做多｜小倉";
-      else if (shortBreakoutReady && canEnter && ["A", "B"].includes(signalLevel)) finalSignal = "🔻 跌破做空｜小倉";
-      else if (marketEnvironment === "bull" && longEarlyBreakout && earlyBreakoutWatch) finalSignal = "🔥 準備突破｜觀察";
-      else if (marketEnvironment === "bear" && shortEarlyBreakout && earlyBreakoutWatch) finalSignal = "🔥 準備跌破｜觀察";
-      else if (mixedObservation && direction === "long" && marketScore >= 50) finalSignal = "盤整偏多｜突破前觀察";
-      else if (mixedObservation && direction === "short" && marketScore >= 50) finalSignal = "盤整偏空｜跌破前觀察";
-      else if (direction && canEnter && signalLevel === "A") finalSignal = direction === "long" ? "強烈做多" : "強烈做空";
-      else if (direction && canEnter && signalLevel === "B") finalSignal = sideLabel + "｜可以做";
-      else if (direction && signalLevel === "B") finalSignal = sideLabel + "｜可小倉嘗試";
-      else if (!hardBlocked && direction === "long" && (marketScore >= 50 || nearLongSignal)) finalSignal = "接近做多｜觀察";
-      else if (!hardBlocked && direction === "short" && (marketScore >= 50 || nearShortSignal)) finalSignal = "接近做空｜觀察";
-      else if (!hardBlocked && marketScore >= 80 && direction === "long" && !canEnter) finalSignal = "強勢偏多｜等回踩";
-      else if (!hardBlocked && marketScore >= 80 && direction === "short" && !canEnter) finalSignal = "強勢偏空｜等反彈";
-      else if (marketEnvironment === "mixed") finalSignal = "等待";
-      const signalStageValue = signalStage({ direction, signalLevel, canEnter, finalSignal });
-      const chaseRisk = direction === "long" ? !basic.notNearHigh : direction === "short" ? !basic.notNearLow : false;
-      const telegramBlocked = cooldown.active || ma30Deviation.overLimit || stopLossTooSmall || chaseRisk;
-      const telegramWillNotify = ["S", "A", "B"].includes(signalLevel) && !telegramBlocked;
-      const noTelegramReason = telegramWillNotify
-        ? "符合 S/A/B 通知等級，仍受冷卻機制限制"
-        : cooldown.active
-          ? "冷卻中，不推播"
-        : ma30Deviation.overLimit
-          ? "偏離 MA30 過遠，不推播"
-        : stopLossTooSmall
-          ? "結構太小，不推播"
-        : chaseRisk
-          ? "追價風險，不推播"
-        : signalLevel === "C"
-          ? "C級不推播"
-        : "D級不交易，不推播";
-
-      const warnings = [];
-      warnings.push(`目前模式：${modeLabel}`);
-      warnings.push(`大方向：${majorTrend}`);
-      warnings.push(`盤勢環境：${marketEnvironment === "bull" ? "多頭環境" : marketEnvironment === "bear" ? "空頭環境" : "混合環境"}`);
-      warnings.push(`盤勢評分：${marketScore}/100（${marketGrade}）`);
-      warnings.push(`進場評分：${entryScore}/100（${entryGrade}）`);
-      warnings.push(`訊號等級：${signalLevel}`);
-      warnings.push(`狀態：${signalStageValue}`);
-      warnings.push(`是否可以進場：${entryPermissionText}`);
-      warnings.push(`冷卻狀態：${cooldown.active ? "冷卻中" : "正常"}${cooldown.active ? `｜剩餘 ${cooldown.remainingMinutes} 分鐘` : ""}`);
-      warnings.push(`MA30 偏離：目前 ${Number.isFinite(ma30Deviation.percent) ? number(ma30Deviation.percent, 2) : "-"}% / 上限 ${number(ma30Deviation.limit, 2)}%`);
-      warnings.push(`是否通知 Telegram：${telegramWillNotify ? "是" : "否"}`);
-      if (!telegramWillNotify) warnings.push(`不通知原因：${noTelegramReason}`);
-      if (signalLevel === "S") warnings.push("⭐ S級機會｜高品質訊號，可重點關注");
-      if (againstMajorTrend) warnings.push("逆勢，高風險");
-      if (cooldown.active) {
-        warnings.push("🧊 冷卻中，暫停交易");
-        warnings.push(`剩餘 ${cooldown.remainingMinutes} 分鐘`);
-      }
-      if (ma30Deviation.overLimit) {
-        warnings.push("⚠ 偏離 MA30 過遠，等待回踩");
-        warnings.push(`距離 MA30：${number(ma30Deviation.percent, 2)}%`);
-        warnings.push(`上限：${number(ma30Deviation.limit, 2)}%`);
-      }
-      if (stopLossTooSmall) {
-        warnings.push("⚠ 結構太小，不建議交易");
-        warnings.push(`止損距離不足（${number(planMetrics.stopLossPercent, 2)}% < ${number(planMetrics.minStopLossPercent, 2)}%）`);
-      }
-      if (rrSmallOnly) warnings.push("RR 介於 0.6～1.2，只允許觀察 / 小倉，不給正式進場");
-      if (Number.isFinite(planMetrics.rr) && planMetrics.rr < 0.6) warnings.push("RR 小於 0.6，禁止進場");
-      if (environmentReason) warnings.push(environmentReason);
-      if (hardBlocked) {
-        warnings.push("禁止進場");
-        warnings.push("原因：" + hardBlockReasons.join("、"));
-      } else if (marketScore >= 80 && !canEnter && direction) {
-        warnings.push("有行情，但不是最佳進場點");
-      }
-      if (entryDetails.bonusReasons.length) warnings.push(`加分原因：${entryDetails.bonusReasons.join("、")}`);
-      if (entryDetails.warningReasons.length) warnings.push(`警告提醒：${entryDetails.warningReasons.join("、")}`);
-      if (volumeRatio >= 0.8 && volumeRatio < 1.0) warnings.push("量能偏弱，小倉觀察。");
-      if (!hardBlocked && marketEnvironment === "bull" && longEarlyBreakout && !longBreakoutReady) warnings.push("準備突破觀察：有啟動跡象，但尚未正式突破。");
-      if (!hardBlocked && marketEnvironment === "bear" && shortEarlyBreakout && !shortBreakoutReady) warnings.push("準備跌破觀察：有啟動跡象，但尚未正式跌破。");
-      if (!hardBlocked && nearLongSignal) warnings.push("即將可能做多：MA / 價格 / MACD / RSI 有接近轉強跡象");
-      if (!hardBlocked && nearShortSignal) warnings.push("即將可能做空：MA / 價格 / MACD / RSI 有接近轉弱跡象");
-      if ((longBreakout || shortBreakout) && !breakoutReady && direction && volumeRatio < 1.0) warnings.push("突破觀察：量能未達 1.0x，暫不追突破");
-      if (breakoutReady) warnings.push("突破型訊號，小倉，不要重倉追。");
-      if (consolidationTooLong) warnings.push("橫盤過久，不建議交易");
-      if (severeScoreConflict) warnings.push("關鍵分數嚴重矛盾，降為 D 級");
-      if (ma200.warning) warnings.push(ma200.warning);
-      if (volumeRatio < 0.2) warnings.push("量能極低，訊號可信度下降，避免市價追單");
-      if (atrInfo.low) warnings.push("ATR 波動不足，行情可能走不動");
-      if (macdNote) warnings.push(macdNote);
-      const nonTradeReasons = [];
-      if (!Number.isFinite(planMetrics.rr)) nonTradeReasons.push("RR 資料不足");
-      else if (planMetrics.rr < 0.6) nonTradeReasons.push(`RR 太低 (${number(planMetrics.rr, 2)})`);
-      if (marketScore < 65) nonTradeReasons.push("Market 分數不足");
-      if (momentumScore < 20) nonTradeReasons.push("Momentum 不足");
-      if (consolidationTooLong) nonTradeReasons.push("盤整過久");
-      if (!direction) nonTradeReasons.push("方向不明");
-      if (stopLossTooSmall) nonTradeReasons.push("結構太小");
-      if (ma30Deviation.overLimit) nonTradeReasons.push("偏離 MA30 過遠");
-      if (chaseRisk) nonTradeReasons.push("追價風險");
-      if (volumeRatio < 0.2) nonTradeReasons.push("量能極低");
-
-      return {
-        ...analysis,
-        atr,
-        atrInfo,
-        rsi,
-        rsiStatus: rsiState(rsi),
-        macd: macdResult,
-        ma200,
-        marketScore,
-        marketGrade,
-        momentumScore,
-        entryMode,
-        modeLabel,
-        majorTrend,
-        rr: planMetrics.rr,
-        marketScoreLabel: entryDetails.label,
-        entryScore,
-        entryGrade,
-        signalLevel,
-        signalStage: signalStageValue,
-        telegramWillNotify,
-        noTelegramReason,
-        nonTradeReasons,
-        consolidationTooLong,
-        severeScoreConflict,
-        cooldown,
-        ma30Deviation,
-        chaseRisk,
-        entryQualityLabel: entryPermissionText,
-        canEnter,
-        entryBonusReasons: entryDetails.bonusReasons,
-        entryPenaltyReasons: entryDetails.penaltyReasons,
-        hardBlocks: hardBlockReasons,
-        hardBlocked,
-        riskWarnings: warnings,
-        stopLossPercent: planMetrics.stopLossPercent,
-        minStopLossPercent: planMetrics.minStopLossPercent,
-        stopLossTooSmall,
-        sQualified,
-        tradePlan: direction
-          ? [
-            buildTradePlan(direction, scoredBasic),
-            cooldown.active ? `🧊 冷卻中，暫停交易｜剩餘 ${cooldown.remainingMinutes} 分鐘` : "",
-            ma30Deviation.overLimit ? `⚠ 偏離 MA30 過遠，等待回踩｜距離 MA30：${number(ma30Deviation.percent, 2)}%｜上限：${number(ma30Deviation.limit, 2)}%` : "",
-            stopLossTooSmall ? "⚠ 結構太小，不建議交易" : "",
-            hardBlocked ? "禁止進場。<br>等待風險解除。" : "",
-            !canEnter && !hardBlocked ? (rrSmallOnly ? "RR 偏低，只允許觀察 / 小倉。" : Number.isFinite(planMetrics.rr) && planMetrics.rr < 0.6 ? "RR 小於 0.6，禁止進場。" : (environmentReason || "不是最佳進場點，等待確認。")) : ""
-          ].filter(Boolean).join("<br>")
-          : "等待方向。",
-        trendMode,
-        strongBullAllowed: direction === "long" && ["S", "A"].includes(signalLevel) && canEnter,
-        strongBearAllowed: direction === "short" && ["S", "A"].includes(signalLevel) && canEnter,
-        direction,
-        marketEnvironment,
-        environmentReason,
-        previousRecentHigh: basic.previousRecentHigh,
-        previousRecentLow: basic.previousRecentLow,
-        symbol,
-        directionScore,
-        longDirectionScore: longScore,
-        shortDirectionScore: shortScore,
-        longBreakout,
-        shortBreakout,
-        longEarlyBreakout,
-        shortEarlyBreakout,
-        nearLongSignal,
-        nearShortSignal,
-        breakoutReady,
-        finalSignal
-      };
+      return scoreAdvancedAnalysisV2(analysis, basic);
     }
-
     function renderAdvancedAnalysis() {
+      const ids = ["volumeStatus", "macdStatus", "atrStatus", "entryQuality", "finalSignal", "riskWarnings", "tradePlan", "analysisStatus"];
       if (!latestAdvancedAnalysis) {
         document.querySelector("#volumeStatus").textContent = "資料不足";
         document.querySelector("#macdStatus").textContent = "資料不足";
@@ -3826,43 +2427,40 @@ ${noTradeReasons}
         document.querySelector("#finalSignal").innerHTML = `<span class="signal-icon"></span>資料不足`;
         document.querySelector("#riskWarnings").textContent = "資料不足";
         document.querySelector("#tradePlan").textContent = "資料不足";
-        document.querySelector("#analysisStatus").textContent = "資料不足，無法計算完整分析";
-        ["volumeStatus", "macdStatus", "atrStatus", "entryQuality", "finalSignal", "riskWarnings", "tradePlan", "analysisStatus"].forEach((id) => setTone(id, "flat"));
+        document.querySelector("#analysisStatus").textContent = "資料不足，無法完成分析";
+        ids.forEach((id) => setTone(id, "flat"));
         return;
       }
       const data = latestAdvancedAnalysis;
-      document.querySelector("#volumeStatus").textContent = `${data.volumeStatus} (${number(data.volumeRatio, 2)}x)`;
-      document.querySelector("#macdStatus").innerHTML = `${data.macd.label}｜${data.macd.crossAge === null ? "尚未偵測交叉" : `${data.macd.crossAge} 根 K`}<br><small>RSI(14)：${Number.isFinite(data.rsi) ? number(data.rsi, 1) : "-"}｜${data.rsiStatus}</small>`;
+      document.querySelector("#volumeStatus").textContent = `${number(data.volumeRatio, 2)}x｜${data.volumeStatus}`;
+      document.querySelector("#macdStatus").textContent = data.macd.label;
       document.querySelector("#atrStatus").textContent = `${number(data.atr)}｜${number(data.atrInfo.percent, 3)}%｜${data.atrInfo.status}`;
       const momentumTone = data.momentumScore >= 15 ? "win" : data.momentumScore >= 10 ? "flat" : "muted";
-      document.querySelector("#entryQuality").innerHTML = `大方向：${data.majorTrend || "盤整"}<br>setupType：${data.setupType || "none"}<br>訊號等級：${data.signalLevel || "-"}<br>totalScore：${data.totalScore ?? data.marketScore} / 100<br>Trend：${data.trendScore ?? "-"}｜Structure：${data.structureScore ?? "-"}｜Entry：${data.entryScore ?? "-"}｜RR：${data.rrScore ?? "-"}<br><span class="${momentumTone}">Momentum：${data.momentumScore ?? 0}/20</span><br>MA30 偏離：目前 ${Number.isFinite(data.ma30Deviation?.percent) ? number(data.ma30Deviation.percent, 2) : "-"}% / 上限 ${number(data.ma30Deviation?.limit ?? 0, 2)}%<br>Telegram 推播狀態：${data.telegramWillNotify ? "會推播" : "不推播"}${data.telegramWillNotify ? "" : "｜" + (data.noTelegramReason || "")}<br>訊號狀態：${data.entryQualityLabel}`;
+      document.querySelector("#entryQuality").innerHTML = `大方向：${data.majorTrend || "盤整"}<br>setupType：${data.setupType || "none"}<br>訊號等級：${data.signalLevel || "-"}<br>totalScore：${data.totalScore ?? data.marketScore} / 100<br>Trend：${data.trendScore ?? "-"}｜Structure：${data.structureScore ?? "-"}｜Entry：${data.entryScore ?? "-"}｜RR：${data.rrScore ?? "-"}<br><span class="${momentumTone}">Momentum：${data.momentumScore ?? 0}/20</span><br>MA30 偏離：${Number.isFinite(data.ma30Deviation?.percent) ? number(data.ma30Deviation.percent, 2) : "-"}% / 上限 ${number(data.ma30Deviation?.limit ?? 0, 2)}%<br>Telegram 推播：${data.telegramWillNotify ? "會推播" : "不推播"}${data.telegramWillNotify ? "" : "｜" + (data.noTelegramReason || "-")}<br>進場型態：${data.entryQualityLabel || "-"}`;
       document.querySelector("#finalSignal").innerHTML = `<span class="signal-icon"></span>${data.finalSignal}`;
       if (data.ma200?.available) {
         document.querySelector("#ma200Value").textContent = number(data.ma200.value ?? marketValue("ma4h200"));
         document.querySelector("#ma200Trend").textContent = data.ma200.trendLabel;
-        document.querySelector("#ma200Distance").textContent = `${data.ma200.distancePercent >= 0 ? "+" : ""}${number(data.ma200.distancePercent)}%`;
+        document.querySelector("#ma200Distance").textContent = `${data.ma200.distancePercent >= 0 ? "+" : ""}${number(data.ma200.distancePercent, 2)}%`;
         document.querySelector("#ma200Warning").textContent = data.ma200.warning;
       }
-      document.querySelector("#riskWarnings").innerHTML = data.riskWarnings.join("<br>");
+      document.querySelector("#riskWarnings").innerHTML = data.riskWarnings.length ? data.riskWarnings.join("<br>") : "目前沒有主要風險提醒";
       document.querySelector("#tradePlan").innerHTML = data.tradePlan;
-      document.querySelector("#analysisStatus").textContent = "v1.10.0 Dynamic Breakout Edition";
+      document.querySelector("#analysisStatus").textContent = "v2.0 訊號回測版分析完成";
       setTone("volumeStatus", statusTone(data.volumeStatus));
       setTone("macdStatus", data.macd.crossType === "golden" ? "win" : data.macd.crossType === "death" ? "loss" : "flat");
       setTone("atrStatus", data.atrInfo.low ? "flat" : data.atrInfo.high ? "loss" : "win");
       setTone("entryQuality", data.signalLevel === "S" ? "gold" : ["A", "B"].includes(data.signalLevel) ? "win" : "flat");
       setTone("finalSignal", data.signalLevel === "S" ? "gold" : statusTone(data.finalSignal));
-      setTone("riskWarnings", data.hardBlocked ? "flat" : data.riskWarnings.some((item) => item.includes("禁止") || item.includes("不值得") || item.includes("RR 不足") || item.includes("異常過高")) ? "loss" : "win");
+      setTone("riskWarnings", data.hardBlocked ? "flat" : data.riskWarnings.some((item) => item.includes("高") || item.includes("風險") || item.includes("偏弱")) ? "loss" : "win");
       setTone("tradePlan", data.canEnter ? statusTone(data.finalSignal) : "flat");
-      setTone("ma200Trend", data.ma200?.trend === "正常" ? "win" : "flat");
-      setTone("ma200Distance", data.ma200?.trend === "正常" ? "win" : "flat");
+      setTone("ma200Trend", data.ma200?.trend === "normal" ? "win" : "flat");
+      setTone("ma200Distance", data.ma200?.trend === "normal" ? "win" : "flat");
       setTone("analysisStatus", "win");
     }
-
     function renderAutoUpdateStatus() {
-      const stateText = `自動更新：${autoUpdateEnabled ? "開" : "關"}`;
-      const countdownText = autoUpdateEnabled
-        ? `下一次更新倒數：${autoUpdateCountdown} 秒`
-        : "下一次更新倒數：--";
+      const stateText = "自動更新：" + (autoUpdateEnabled ? "開" : "關");
+      const countdownText = autoUpdateEnabled ? "下一次更新倒數：" + autoUpdateCountdown + " 秒" : "下一次更新倒數：-";
       ["#autoUpdateState", "#autoUpdateStateMobile"].forEach((selector) => {
         const target = document.querySelector(selector);
         if (target) target.textContent = stateText;
@@ -3875,7 +2473,6 @@ ${noTradeReasons}
         if (button) button.textContent = stateText;
       });
     }
-
     function setAutoUpdateEnabled(enabled) {
       autoUpdateEnabled = enabled;
       autoUpdateCountdown = autoUpdateIntervalSeconds;
@@ -3913,7 +2510,7 @@ ${noTradeReasons}
 
     async function updateBingxMarketData(options = {}) {
       if (isMarketUpdating) {
-        if (options.source !== "auto") setMarketStatus("BingX 數據更新中，已跳過重複請求。");
+        if (options.source !== "auto") setMarketStatus("BingX 數據更新中，請稍候。");
         return;
       }
       isMarketUpdating = true;
@@ -3921,8 +2518,9 @@ ${noTradeReasons}
       renderAutoUpdateStatus();
       const buttons = [document.querySelector("#updateMarketBtn"), ...document.querySelectorAll(".update-market-mobile")];
       buttons.forEach((button) => {
-        button.disabled = true;
+        if (button) button.disabled = true;
       });
+
       const symbol = currentSymbol();
       setMarketStatus("正在讀取 BingX Futures " + symbol + " K 線資料...");
       try {
@@ -3931,17 +2529,14 @@ ${noTradeReasons}
           fetchBingxFuturesKlines("15m", 300, symbol),
           fetchBingxCurrentPrice(symbol)
         ]);
+
         if (klines4h.length < 200 || klines15m.length < 220) {
           latestAdvancedAnalysis = null;
           renderAdvancedAnalysis();
-          throw new Error("資料不足");
+          throw new Error("資料不足，無法完成分析");
         }
 
         const currentPrice = bingxPriceResult.price;
-        const priceSource = "🟢 BingX Futures";
-        const debugExchange = "BingX";
-        const debugSymbol = bingxPriceResult.symbol || symbol;
-        const debugOriginalSymbol = bingxPriceResult.originalSymbol || tvSymbol(symbol);
         const last20of15m = klines15m.slice(-20);
         const closedRecent15m = klines15m.slice(-21, -1);
         const prev15m = klines15m.slice(0, -1);
@@ -3959,11 +2554,13 @@ ${noTradeReasons}
         };
 
         Object.entries(fieldsToUpdate).forEach(([id, value]) => {
-          document.querySelector("#" + id).value = Number(value).toFixed(2);
+          const input = document.querySelector("#" + id);
+          if (input) input.value = Number(value).toFixed(2);
         });
-        document.querySelector("#priceSource").value = priceSource;
+        document.querySelector("#priceSource").value = "🟢 BingX Futures";
         document.querySelector("#klineSource").value = "🟢 BingX Futures Kline";
-        document.querySelector("#symbolDebug").textContent = "使用交易所：" + debugExchange + "｜使用 symbol：" + debugSymbol + "｜原始顯示 symbol：" + debugOriginalSymbol;
+        document.querySelector("#symbolDebug").textContent = "使用交易所：BingX｜使用 symbol：" + (bingxPriceResult.symbol || symbol) + "｜原始顯示 symbol：" + (bingxPriceResult.originalSymbol || tvSymbol(symbol));
+
         latestAdvancedAnalysis = buildAdvancedAnalysis(klines15m, {
           price: fieldsToUpdate.marketPrice,
           ma4h: fieldsToUpdate.ma4h30,
@@ -3983,470 +2580,88 @@ ${noTradeReasons}
           notNearHigh: fieldsToUpdate.marketPrice < fieldsToUpdate.recentHigh * (1 - (marketValue("chaseBufferPercent") / 100)),
           notNearLow: fieldsToUpdate.marketPrice > fieldsToUpdate.recentLow * (1 + (marketValue("chaseBufferPercent") / 100))
         });
+
         renderKlineChart(klines15m);
         renderAdvancedAnalysis();
         updateMarketDashboard();
-        setMarketStatus(`最後更新：${new Date().toLocaleString("zh-TW", { hour12: false })}`);
+        setMarketStatus("最後更新：" + new Date().toLocaleString("zh-TW", { hour12: false }));
       } catch (error) {
         latestAdvancedAnalysis = null;
         renderKlineChart([]);
         ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "recentHigh", "recentLow"].forEach((id) => {
-          document.querySelector("#" + id).value = "";
+          const input = document.querySelector("#" + id);
+          if (input) input.value = "";
         });
         renderAdvancedAnalysis();
         document.querySelector("#priceSource").value = "BingX 數據取得失敗";
         document.querySelector("#klineSource").value = "BingX 數據取得失敗";
-        document.querySelector("#symbolDebug").textContent = "使用交易所：BingX｜使用 symbol：" + currentSymbol() + "｜原始顯示 symbol：" + tvSymbol();
+        document.querySelector("#symbolDebug").textContent = "使用交易所：BingX｜使用 symbol：" + currentSymbol() + "｜原始顯示 symbol：" + tvSymbol(currentSymbol());
         updateMarketDashboard();
-        setMarketStatus(`BingX 數據取得失敗，暫停分析：${error.message}`, true);
+        setMarketStatus("BingX 數據取得失敗，暫停分析：" + error.message, true);
       } finally {
         isMarketUpdating = false;
         buttons.forEach((button) => {
-          button.disabled = false;
+          if (button) button.disabled = false;
         });
         renderAutoUpdateStatus();
       }
     }
-
     function updateMarketDashboard() {
       const price = marketValue("marketPrice");
       const ma4h = marketValue("ma4h30");
-      const ma4h200 = marketValue("ma4h200");
       const ma15m30 = marketValue("ma15m30");
       const ma5 = marketValue("ma15m5");
       const ma10 = marketValue("ma15m10");
       const recentHigh = marketValue("recentHigh");
       const recentLow = marketValue("recentLow");
       const chaseBufferPercent = marketValue("chaseBufferPercent");
-      const chaseBuffer = chaseBufferPercent / 100;
-      const ma200 = ma200Context(price, ma4h200);
-      document.querySelector("#bufferHint").textContent = `距離最近高點/低點需大於 ${chaseBufferPercent || 0}%，才視為沒有追價。`;
+      const hasMarketData = [price, ma4h, ma15m30, ma5, ma10, recentHigh, recentLow].every(Number.isFinite);
 
-      const bias4h = hasMarketValues("marketPrice", "ma4h30")
-        ? price > ma4h ? "偏多" : price < ma4h ? "偏空" : "中性"
-        : "等待資料";
-      const bias15m = hasMarketValues("marketPrice", "ma15m30")
-        ? price > ma15m30 ? "偏多" : price < ma15m30 ? "偏空" : "中性"
-        : "等待資料";
-      const maBias = hasMarketValues("ma15m5", "ma15m10")
-        ? ma5 > ma10 ? "短線轉強" : ma5 < ma10 ? "短線轉弱" : "短線中性"
-        : "等待資料";
-
-      document.querySelector("#bias4h").textContent = bias4h;
-      document.querySelector("#bias15m").textContent = bias15m;
-      document.querySelector("#maBias").textContent = maBias;
-      document.querySelector("#ma200Value").textContent = ma200.available ? number(ma200.value) : "等待資料";
-      document.querySelector("#ma200Trend").textContent = ma200.trendLabel;
-      document.querySelector("#ma200Distance").textContent = ma200.available ? `${ma200.distancePercent >= 0 ? "+" : ""}${number(ma200.distancePercent)}%` : "等待資料";
-      document.querySelector("#ma200Warning").textContent = ma200.warning;
-      setTone("bias4h", bias4h === "偏多" ? "win" : bias4h === "偏空" ? "loss" : "flat");
-      setTone("bias15m", bias15m === "偏多" ? "win" : bias15m === "偏空" ? "loss" : "flat");
-      setTone("maBias", maBias === "短線轉強" ? "win" : maBias === "短線轉弱" ? "loss" : "flat");
-      setTone("ma200Trend", ma200.trend === "正常" ? "win" : "flat");
-      setTone("ma200Distance", ma200.trend === "正常" ? "win" : "flat");
-
-      const notNearHigh = hasMarketValues("marketPrice", "recentHigh") && price < recentHigh * (1 - chaseBuffer);
-      const notNearLow = hasMarketValues("marketPrice", "recentLow") && price > recentLow * (1 + chaseBuffer);
-      if (latestAdvancedAnalysis) {
-        if (hasMarketValues("marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "recentHigh", "recentLow")) {
-          latestAdvancedAnalysis = scoreAdvancedAnalysisV2(latestAdvancedAnalysis, {
-            price,
-            ma4h,
-            ma4h200,
-            ma15m30,
-            ma5,
-            ma10,
-            ma15m30Prev: latestAdvancedAnalysis.ma15m30Prev ?? ma15m30,
-            prevClose: latestAdvancedAnalysis.prevClose ?? price,
-            prevMa10: latestAdvancedAnalysis.prevMa10 ?? ma10,
-            recentHigh,
-            recentLow,
-            previousRecentHigh: latestAdvancedAnalysis.previousRecentHigh,
-            previousRecentLow: latestAdvancedAnalysis.previousRecentLow,
-            atr: latestAdvancedAnalysis.atr,
-            symbol: latestAdvancedAnalysis.symbol || currentSymbol(),
-            notNearHigh,
-            notNearLow
-          });
-        } else {
-          latestAdvancedAnalysis = null;
-        }
-      }
-      const longConditions = [
-        {
-          label: "現價 > 4H MA30",
-          available: hasMarketValues("marketPrice", "ma4h30"),
-          pass: hasMarketValues("marketPrice", "ma4h30") && price > ma4h,
-          reason: "現價還沒站上 4H MA30",
-          missing: "缺少現價或 4H MA30"
-        },
-        {
-          label: "現價 > 15m MA30",
-          available: hasMarketValues("marketPrice", "ma15m30"),
-          pass: hasMarketValues("marketPrice", "ma15m30") && price > ma15m30,
-          reason: "現價跌破 15m MA30",
-          missing: "缺少現價或 15m MA30"
-        },
-        {
-          label: "MA5 > MA10",
-          available: hasMarketValues("ma15m5", "ma15m10"),
-          pass: hasMarketValues("ma15m5", "ma15m10") && ma5 > ma10,
-          reason: "MA5 還沒站上 MA10",
-          missing: "缺少 15m MA5 或 15m MA10"
-        },
-        {
-          label: "沒有太接近最近高點",
-          available: hasMarketValues("marketPrice", "recentHigh"),
-          pass: notNearHigh,
-          reason: "太接近最近高點",
-          missing: "缺少現價或最近高點"
-        }
-      ];
-      const shortConditions = [
-        {
-          label: "現價 < 4H MA30",
-          available: hasMarketValues("marketPrice", "ma4h30"),
-          pass: hasMarketValues("marketPrice", "ma4h30") && price < ma4h,
-          reason: "現價還沒跌破 4H MA30",
-          missing: "缺少現價或 4H MA30"
-        },
-        {
-          label: "現價 < 15m MA30",
-          available: hasMarketValues("marketPrice", "ma15m30"),
-          pass: hasMarketValues("marketPrice", "ma15m30") && price < ma15m30,
-          reason: "現價還沒跌破 15m MA30",
-          missing: "缺少現價或 15m MA30"
-        },
-        {
-          label: "MA5 < MA10",
-          available: hasMarketValues("ma15m5", "ma15m10"),
-          pass: hasMarketValues("ma15m5", "ma15m10") && ma5 < ma10,
-          reason: "MA5 還沒跌破 MA10",
-          missing: "缺少 15m MA5 或 15m MA10"
-        },
-        {
-          label: "沒有太接近最近低點",
-          available: hasMarketValues("marketPrice", "recentLow"),
-          pass: notNearLow,
-          reason: "太接近最近低點",
-          missing: "缺少現價或最近低點"
-        }
-      ];
-      const longScore = longConditions.filter((item) => item.pass).length;
-      const shortScore = shortConditions.filter((item) => item.pass).length;
-
-      document.querySelector("#longScore").textContent = `${longScore} / 4`;
-      document.querySelector("#shortScore").textContent = `${shortScore} / 4`;
-      renderConditionList("longConditions", longConditions);
-      renderConditionList("shortConditions", shortConditions);
-
-      const longMissingReasons = longConditions.map(conditionReason).filter(Boolean);
-      const shortMissingReasons = shortConditions.map(conditionReason).filter(Boolean);
-      let decision = "等待";
-      let direction = null;
-      let score = 0;
-      let missingReasons = [];
-
-      if (latestAdvancedAnalysis) {
-        decision = latestAdvancedAnalysis.finalSignal || "等待";
-        direction = latestAdvancedAnalysis.canEnter ? latestAdvancedAnalysis.direction : null;
-        score = latestAdvancedAnalysis.directionScore ?? 0;
-        missingReasons = direction === "long" ? longMissingReasons : direction === "short" ? shortMissingReasons : [];
-      }
-
-      latestMarketSignal = { decision, direction, score, longConditions, shortConditions };
-      document.querySelector("#tradeBias").innerHTML = `<span class="signal-icon"></span>${decision}`;
-      document.querySelector("#tradeReason").innerHTML = buildSignalReason(decision, score, missingReasons, longMissingReasons, shortMissingReasons);
-      document.querySelector("#applySignalBtn").disabled = !(latestAdvancedAnalysis && latestAdvancedAnalysis.canEnter);
-      setTone("tradeBias", direction === "long" ? "win" : direction === "short" ? "loss" : "flat");
-      saveMarketInputs();
-      renderAdvancedAnalysis();
-      queueTelegramScan();
-    }
-
-    function checklistComplete() {
-      return checklistFields.every((id) => document.querySelector("#" + id).checked);
-    }
-
-    function checklistValue() {
-      return checklistFields.reduce((result, id) => {
-        result[id] = document.querySelector("#" + id).checked;
-        return result;
-      }, {});
-    }
-
-    function updateSubmitState() {
-      const complete = checklistComplete();
-      document.querySelector("#submitBtn").disabled = !complete;
-      document.querySelector("#checkHint").textContent = complete ? "Checklist 已完成，可以儲存。" : "五項全部打勾後才能儲存。";
-      document.querySelector("#checkHint").style.color = complete ? "var(--green)" : "var(--amber)";
-    }
-
-    function updateChecklistCopy() {
-      const side = document.querySelector("#side").value;
-      Object.entries(checklistCopy[side]).forEach(([id, text]) => {
-        document.querySelector("#" + id).textContent = text;
-      });
-    }
-
-    function applySignalToChecklist() {
-      const isLong = latestMarketSignal.direction === "long";
-      const isShort = latestMarketSignal.direction === "short";
-      if (!isLong && !isShort) return;
-
-      setTradeCollapsed(false);
-      const side = isLong ? "long" : "short";
-      const sourceConditions = isLong ? latestMarketSignal.longConditions : latestMarketSignal.shortConditions;
-      const mappedFields = ["check4h", "check15m", "checkMa5Ma10", "checkNoChase"];
-
-      document.querySelector("#side").value = side;
-      updateChecklistCopy();
-      mappedFields.forEach((id, index) => {
-        document.querySelector("#" + id).checked = Boolean(sourceConditions[index]?.pass);
-      });
-      updateSubmitState();
-      document.querySelector("#tradeForm").scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-
-    function nowForInput() {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-      return now.toISOString().slice(0, 16);
-    }
-
-    function setDefaults() {
-      form.reset();
-      document.querySelector("#recordId").value = "";
-      document.querySelector("#date").value = nowForInput();
-      document.querySelector("#leverage").value = "10";
-      document.querySelector("#fee").value = "0";
-      document.querySelector("#formTitle").textContent = "新增交易";
-      document.querySelector("#submitBtn").textContent = "儲存";
-      updateChecklistCopy();
-      checklistFields.forEach((id) => {
-        document.querySelector("#" + id).checked = false;
-      });
-      updateSubmitState();
-    }
-
-    function applyFilters(list) {
-      const q = document.querySelector("#search").value.trim().toLowerCase();
-      const side = document.querySelector("#sideFilter").value;
-      const symbol = document.querySelector("#symbolFilter")?.value || "all";
-      const result = document.querySelector("#resultFilter").value;
-      return list.filter((trade) => {
-        const pnl = pnlOf(trade);
-        const resultType = pnl > 0 ? "win" : pnl < 0 ? "loss" : "flat";
-        const content = `${trade.setup} ${trade.reason || ""} ${trade.note}`.toLowerCase();
-        return (symbol === "all" || (trade.symbol || "BTC-USDT") === symbol)
-          && (side === "all" || trade.side === side)
-          && (result === "all" || result === resultType)
-          && (!q || content.includes(q));
-      });
-    }
-
-    function render() {
-      const visibleTrades = applyFilters([...trades].sort((a, b) => b.date.localeCompare(a.date)));
-      recordsEl.innerHTML = "";
-      recordCardsEl.innerHTML = "";
-      emptyState.classList.toggle("hide", visibleTrades.length > 0);
-      if (!visibleTrades.length) {
-        recordCardsEl.innerHTML = `<div class="empty">還沒有交易紀錄。</div>`;
-      }
-
-      visibleTrades.forEach((trade) => {
-        const pnl = pnlOf(trade);
-        const rr = rrOf(trade);
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${trade.date.replace("T", " ")}</td>
-          <td>${trade.symbol || "BTC-USDT"}</td>
-          <td><span class="pill ${trade.side}">${trade.side === "long" ? "做多" : "做空"}</span></td>
-          <td>${trade.leverage}x</td>
-          <td>${number(trade.entry)}<br>${number(trade.exit)}</td>
-          <td>${number(trade.quantity, 4)} ${symbolBase(trade.symbol || "BTC-USDT")}</td>
-          <td>${money(trade.fee)}</td>
-          <td class="${pnl > 0 ? "win" : pnl < 0 ? "loss" : "flat"}">${money(pnl)}</td>
-          <td>${rr === null ? "-" : number(rr, 2)}</td>
-          <td><strong>${trade.setup || "-"}</strong><br>${trade.reason ? `原因：${trade.reason}<br>` : ""}${trade.note || ""}</td>
-          <td>
-            <div class="row-actions">
-              <button class="icon-btn" type="button" title="編輯" data-action="edit" data-id="${trade.id}">✎</button>
-              <button class="icon-btn" type="button" title="刪除" data-action="delete" data-id="${trade.id}">×</button>
-            </div>
-          </td>
-        `;
-        recordsEl.appendChild(row);
-
-        const card = document.createElement("article");
-        card.className = "record-card";
-        card.innerHTML = `
-          <div class="record-card-head">
-            <span class="record-card-date">${trade.date.replace("T", " ")}｜${trade.symbol || "BTC-USDT"}</span>
-            <span class="pill ${trade.side}">${trade.side === "long" ? "做多" : "做空"}</span>
-          </div>
-          <div class="record-card-grid">
-            <div class="record-card-field"><span>槓桿</span><strong>${trade.leverage}x</strong></div>
-            <div class="record-card-field"><span>盈虧</span><strong class="${pnl > 0 ? "win" : pnl < 0 ? "loss" : "flat"}">${money(pnl)}</strong></div>
-            <div class="record-card-field"><span>進場</span><strong>${number(trade.entry)}</strong></div>
-            <div class="record-card-field"><span>出場</span><strong>${number(trade.exit)}</strong></div>
-          </div>
-          <div class="record-card-note">
-            <strong>${trade.setup || "-"}</strong><br>
-            ${trade.reason ? `原因：${trade.reason}` : ""}
-          </div>
-          <div class="record-card-actions">
-            <button class="btn" type="button" data-action="edit" data-id="${trade.id}">編輯</button>
-            <button class="btn danger" type="button" data-action="delete" data-id="${trade.id}">刪除</button>
-          </div>
-        `;
-        recordCardsEl.appendChild(card);
-      });
-
-      renderStats();
-    }
-
-    function renderStats() {
-      const total = trades.reduce((sum, trade) => sum + pnlOf(trade), 0);
-      const wins = trades.filter((trade) => pnlOf(trade) > 0).length;
-      const rrs = trades.map(rrOf).filter((value) => value !== null && Number.isFinite(value));
-      const avgRr = rrs.length ? rrs.reduce((sum, value) => sum + value, 0) / rrs.length : 0;
-      const streaks = streakStats();
-      document.querySelector("#totalPnl").textContent = money(total);
-      document.querySelector("#totalPnl").className = total > 0 ? "win" : total < 0 ? "loss" : "flat";
-      document.querySelector("#winRate").textContent = trades.length ? `${Math.round((wins / trades.length) * 100)}%` : "0%";
-      document.querySelector("#tradeCount").textContent = String(trades.length);
-      document.querySelector("#avgRr").textContent = number(avgRr, 2);
-      document.querySelector("#maxWinStreak").textContent = String(streaks.maxWin);
-      document.querySelector("#maxLossStreak").textContent = String(streaks.maxLoss);
-      document.querySelector("#currentStreak").textContent = streaks.currentType === "win"
-        ? `連勝 ${streaks.currentCount}`
-        : streaks.currentType === "loss"
-          ? `連敗 ${streaks.currentCount}`
-          : "0";
-      document.querySelector("#currentStreak").className = streaks.currentType === "win"
-        ? "win"
-        : streaks.currentType === "loss"
-          ? "loss"
-          : "flat";
-    }
-
-    function fillForm(trade) {
-      fields.forEach((id) => {
-        const target = document.querySelector("#" + id);
-        if (id === "recordId") target.value = trade.id;
-        else target.value = trade[id] ?? "";
-      });
-      checklistFields.forEach((id) => {
-        document.querySelector("#" + id).checked = Boolean(trade.checklist?.[id]);
-      });
-      document.querySelector("#formTitle").textContent = "編輯交易";
-      document.querySelector("#submitBtn").textContent = "更新";
-      setTradeCollapsed(false);
-      updateChecklistCopy();
-      updateSubmitState();
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
-
-    function exportCsv() {
-      const header = ["日期", "幣種", "方向", "槓桿", "進場價", "出場價", "倉位BTC", "手續費USDT", "風險USDT", "盈虧USDT", "RR", "策略", "交易結果原因", "備註"];
-      const rows = trades.map((trade) => [
-        trade.date,
-        trade.symbol || "BTC-USDT",
-        trade.side === "long" ? "做多" : "做空",
-        trade.leverage,
-        trade.entry,
-        trade.exit,
-        trade.quantity,
-        trade.fee,
-        trade.risk || "",
-        pnlOf(trade).toFixed(2),
-        rrOf(trade) === null ? "" : rrOf(trade).toFixed(2),
-        trade.setup,
-        trade.reason || "",
-        trade.note
-      ]);
-      const csv = [header, ...rows]
-        .map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll('"', '""')}"`).join(","))
-        .join("\n");
-      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "multi-symbol-contract-trades.csv";
-      link.click();
-      URL.revokeObjectURL(url);
-    }
-
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      if (!checklistComplete()) {
-        updateSubmitState();
+      document.querySelector("#bufferHint").textContent = "追價緩衝：" + (chaseBufferPercent || 0) + "%";
+      if (!hasMarketData) {
+        document.querySelector("#bias4h").textContent = "資料不足";
+        document.querySelector("#bias15m").textContent = "資料不足";
+        document.querySelector("#maBias").textContent = "資料不足";
+        document.querySelector("#tradeBias").textContent = "等待";
+        document.querySelector("#tradeReason").textContent = "請先更新市場數據。";
+        document.querySelector("#longScore").textContent = "0 / 4";
+        document.querySelector("#shortScore").textContent = "0 / 4";
+        document.querySelector("#longConditions").innerHTML = "";
+        document.querySelector("#shortConditions").innerHTML = "";
         return;
       }
-      const record = {
-        id: formValue("recordId") || crypto.randomUUID(),
-        date: formValue("date"),
-        symbol: currentSymbol(),
-        side: formValue("side"),
-        leverage: formValue("leverage"),
-        entry: formValue("entry"),
-        exit: formValue("exit"),
-        quantity: formValue("quantity"),
-        fee: formValue("fee"),
-        risk: formValue("risk"),
-        setup: formValue("setup"),
-        reason: formValue("reason"),
-        note: formValue("note"),
-        checklist: checklistValue()
-      };
-      const currentIndex = trades.findIndex((trade) => trade.id === record.id);
-      if (currentIndex >= 0) trades[currentIndex] = record;
-      else trades.push(record);
-      if (pnlOf(record) < 0 || String(record.reason || "").includes("止損")) {
-        startTradeCooldown();
-      }
-      saveTrades();
-      setDefaults();
-      render();
-      updateMarketDashboard();
-    });
 
-    function handleRecordAction(event) {
-      const button = event.target.closest("button[data-action]");
-      if (!button) return;
-      const trade = trades.find((item) => item.id === button.dataset.id);
-      if (!trade) return;
-      if (button.dataset.action === "edit") {
-        fillForm(trade);
-      }
-      if (button.dataset.action === "delete" && confirm("確定刪除這筆交易？")) {
-        trades = trades.filter((item) => item.id !== button.dataset.id);
-        saveTrades();
-        render();
-      }
+      const longItems = [
+        { label: "現價 > 4H MA30", pass: price > ma4h },
+        { label: "現價 > 15m MA30", pass: price > ma15m30 },
+        { label: "MA5 > MA10", pass: ma5 > ma10 },
+        { label: "沒有太接近最近高點", pass: price < recentHigh * (1 - chaseBufferPercent / 100) }
+      ];
+      const shortItems = [
+        { label: "現價 < 4H MA30", pass: price < ma4h },
+        { label: "現價 < 15m MA30", pass: price < ma15m30 },
+        { label: "MA5 < MA10", pass: ma5 < ma10 },
+        { label: "沒有太接近最近低點", pass: price > recentLow * (1 + chaseBufferPercent / 100) }
+      ];
+      const longScore = longItems.filter((item) => item.pass).length;
+      const shortScore = shortItems.filter((item) => item.pass).length;
+      const renderItems = (items) => items.map((item) => "<div class=\"" + (item.pass ? "pass" : "fail") + "\">" + (item.pass ? "✓" : "×") + " " + item.label + "</div>").join("");
+
+      document.querySelector("#bias4h").textContent = price > ma4h ? "偏多" : price < ma4h ? "偏空" : "中性";
+      document.querySelector("#bias15m").textContent = price > ma15m30 ? "偏多" : price < ma15m30 ? "偏空" : "中性";
+      document.querySelector("#maBias").textContent = ma5 > ma10 ? "短線轉強" : ma5 < ma10 ? "短線轉弱" : "中性";
+      document.querySelector("#longScore").textContent = longScore + " / 4";
+      document.querySelector("#shortScore").textContent = shortScore + " / 4";
+      document.querySelector("#longConditions").innerHTML = renderItems(longItems);
+      document.querySelector("#shortConditions").innerHTML = renderItems(shortItems);
+
+      const decision = latestAdvancedAnalysis?.finalSignal || "等待";
+      document.querySelector("#tradeBias").textContent = decision;
+      const reasons = latestAdvancedAnalysis
+        ? [...(latestAdvancedAnalysis.hardBlockReasons || []), ...(latestAdvancedAnalysis.warnings || [])]
+        : [];
+      document.querySelector("#tradeReason").textContent = reasons.length ? reasons.join("｜") : "依照目前市場結構判斷。";
     }
-
-    recordsEl.addEventListener("click", handleRecordAction);
-    recordCardsEl.addEventListener("click", handleRecordAction);
-
-    document.querySelector("#resetBtn").addEventListener("click", setDefaults);
-    document.querySelector("#exportBtn").addEventListener("click", exportCsv);
-    document.querySelector("#clearBtn").addEventListener("click", () => {
-      if (!trades.length || !confirm("確定清空全部交易紀錄？")) return;
-      trades = [];
-      saveTrades();
-      setDefaults();
-      render();
-    });
-    ["search", "symbolFilter", "sideFilter", "resultFilter"].forEach((id) => {
-      document.querySelector("#" + id).addEventListener("input", render);
-    });
-    checklistFields.forEach((id) => {
-      document.querySelector("#" + id).addEventListener("change", updateSubmitState);
-    });
-    document.querySelector("#side").addEventListener("change", updateChecklistCopy);
-    document.querySelector("#applySignalBtn").addEventListener("click", applySignalToChecklist);
     document.querySelector("#updateMarketBtn").addEventListener("click", updateBingxMarketData);
     document.querySelector("#telegramTestBtn")?.addEventListener("click", testTelegramNotification);
     ["telegramBotToken", "telegramChatId"].forEach((id) => {
@@ -4466,7 +2681,6 @@ ${noTradeReasons}
       loadMarketInputs(activeSymbol);
       updateSymbolUi();
       updateMarketDashboard();
-      render();
       updateBingxMarketData({ source: "symbol" });
     });
     document.querySelectorAll(".update-market-mobile").forEach((button) => {
@@ -4490,9 +2704,6 @@ ${noTradeReasons}
     document.querySelector("#marketForm").addEventListener("submit", (event) => {
       event.preventDefault();
     });
-    document.querySelector("#tradeCollapseBtn").addEventListener("click", () => {
-      setTradeCollapsed(!form.classList.contains("collapsed"));
-    });
     document.querySelector("#refreshSignalStatsBtn")?.addEventListener("click", refreshSignalStats);
 
     loadLayoutMode();
@@ -4505,8 +2716,30 @@ ${noTradeReasons}
     startAutoUpdate();
     updateBingxMarketData({ source: "auto" });
     refreshSignalStats();
-    setDefaults();
-    render();
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
