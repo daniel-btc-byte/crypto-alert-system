@@ -1246,7 +1246,7 @@
       <div class="signal-stats-grid">
         <div class="signal-stat-card"><span>總訊號</span><strong id="signalTotal">-</strong></div>
         <div class="signal-stat-card"><span>勝率</span><strong id="signalWinRate">-</strong></div>
-        <div class="signal-stat-card"><span>S / A / B 勝率</span><strong id="signalGradeRates">-</strong></div>
+        <div class="signal-stat-card"><span>S+ / S / A / B 勝率</span><strong id="signalGradeRates">-</strong></div>
         <div class="signal-stat-card"><span>多單 / 空單勝率</span><strong id="signalSideRates">-</strong></div>
         <div class="signal-stat-card"><span>回踩單 / 突破單</span><strong id="signalSetupRates">-</strong></div>
         <div class="signal-stat-card"><span>進行中訊號</span><strong id="signalOpenCount">-</strong></div>
@@ -1960,7 +1960,12 @@
         [/stop distance unavailable/gi, "止損距離資料不足"],
         [/consolidation too long/gi, "盤整過久"],
         [/score below 60/gi, "分數低於 60"],
-        [/B score\/RR below notify threshold/gi, "B級分數或風報未達推播門檻"]
+        [/B score\/RR below notify threshold/gi, "B級分數或風報未達推播門檻"],
+        [/RR below 1.2/gi, "風報低於 1.2"],
+        [/RSI overheated/gi, "RSI 過熱"],
+        [/RSI oversold/gi, "RSI 過度超賣"],
+        [/ATR extremely high/gi, "ATR 極端高波動"],
+        [/stop too wide/gi, "止損距離過大"]
       ];
       replacements.forEach(([pattern, label]) => {
         text = text.replace(pattern, label);
@@ -1986,7 +1991,7 @@
       const recentSignals = Array.isArray(payload?.recentSignals) ? payload.recentSignals : [];
       document.querySelector("#signalTotal").textContent = stats.totalSignals ?? 0;
       document.querySelector("#signalWinRate").textContent = percentText(stats.overallWinRate);
-      document.querySelector("#signalGradeRates").innerHTML = `S ${bucketRate(stats.byLevel?.S)}<br>A ${bucketRate(stats.byLevel?.A)}<br>B ${bucketRate(stats.byLevel?.B)}`;
+      document.querySelector("#signalGradeRates").innerHTML = `S+ ${bucketRate(stats.byLevel?.["S+"])}<br>S ${bucketRate(stats.byLevel?.S)}<br>A ${bucketRate(stats.byLevel?.A)}<br>B ${bucketRate(stats.byLevel?.B)}`;
       document.querySelector("#signalSideRates").innerHTML = `多 ${bucketRate(stats.byDirection?.long)}<br>空 ${bucketRate(stats.byDirection?.short)}`;
       document.querySelector("#signalSetupRates").innerHTML = `回踩單 ${bucketRate(stats.bySetupType?.pullback)}<br>突破單 ${bucketRate(stats.bySetupType?.breakout)}`;
       document.querySelector("#signalOpenCount").textContent = stats.openSignals ?? 0;
@@ -2029,6 +2034,36 @@
         trueRanges.push(Math.max(highLow, highClose, lowClose));
       }
       return average(trueRanges.slice(-14));
+    }
+
+    function adx14(klines) {
+      if (!Array.isArray(klines) || klines.length < 30) return null;
+      const period = 14;
+      const trueRanges = [];
+      const plusDm = [];
+      const minusDm = [];
+      for (let index = 1; index < klines.length; index += 1) {
+        const current = klines[index];
+        const previous = klines[index - 1];
+        const upMove = current.high - previous.high;
+        const downMove = previous.low - current.low;
+        plusDm.push(upMove > downMove && upMove > 0 ? upMove : 0);
+        minusDm.push(downMove > upMove && downMove > 0 ? downMove : 0);
+        const highLow = current.high - current.low;
+        const highClose = Math.abs(current.high - previous.close);
+        const lowClose = Math.abs(current.low - previous.close);
+        trueRanges.push(Math.max(highLow, highClose, lowClose));
+      }
+      const dxValues = [];
+      for (let index = period - 1; index < trueRanges.length; index += 1) {
+        const tr = average(trueRanges.slice(index - period + 1, index + 1));
+        if (!Number.isFinite(tr) || tr <= 0) continue;
+        const plusDi = average(plusDm.slice(index - period + 1, index + 1)) / tr * 100;
+        const minusDi = average(minusDm.slice(index - period + 1, index + 1)) / tr * 100;
+        const sum = plusDi + minusDi;
+        if (sum > 0) dxValues.push(Math.abs(plusDi - minusDi) / sum * 100);
+      }
+      return dxValues.length >= period ? average(dxValues.slice(-period)) : null;
     }
 
     function atrState(atr, price) {
@@ -2159,9 +2194,9 @@
     }
     function statusTone(status = "") {
       const text = String(status);
-      if (text.includes("做多") || text.includes("偏多") || text.includes("多頭") || text.includes("A級") || text.includes("S級")) return "win";
+      if (text.includes("做多") || text.includes("偏多") || text.includes("多頭") || text.includes("A級") || text.includes("S級") || text.includes("S+級")) return "win";
       if (text.includes("做空") || text.includes("偏空") || text.includes("空頭")) return "loss";
-      if (text.includes("等待") || text.includes("觀察") || text.includes("B級") || text.includes("C級") || text.includes("不交易")) return "flat";
+      if (text.includes("等待") || text.includes("觀察") || text.includes("B級") || text.includes("C級") || text.includes("不交易") || text.includes("不建議")) return "flat";
       return "flat";
     }
     function signalIcon(signal) {
@@ -2174,9 +2209,12 @@
       const volumes = klines15m.map((item) => item.volume).filter(Number.isFinite);
       if (volumes.length < 20) return null;
 
-      const volumeRatio = volumes[volumes.length - 1] / average(volumes.slice(-20));
+      const currentVolume = volumes[volumes.length - 1];
+      const averageVolume = average(volumes.slice(-21, -1));
+      const volumeRatio = currentVolume / average(volumes.slice(-20));
       const macd = buildMacdAnalysis(closes);
       const atr = atr14(klines15m);
+      const adx = adx14(klines15m);
       if (![volumeRatio, atr].every(Number.isFinite) || !macd) return null;
 
       const volumeStatus = volumeRatio >= 1.5 ? "放量" : volumeRatio >= 0.8 ? "正常量" : volumeRatio >= 0.5 ? "量偏低" : volumeRatio >= 0.2 ? "量不足" : "極低量";
@@ -2196,7 +2234,7 @@
         && (basic.price > previousHigh * (1 + breakoutThreshold) || basic.price < previousLow * (1 - breakoutThreshold));
       const consolidationTooLong = last8.length >= 8 && Number.isFinite(rangePercent) && rangePercent < 0.45 && !brokeRecentRange;
 
-      return scoreAdvancedAnalysisV2({ volumeRatio, volumeStatus, macd, atr, rsi, priceSlope, rangePercent, consolidationTooLong }, basic);
+      return scoreAdvancedAnalysisV2({ volumeRatio, volumeStatus, macd, atr, adx, rsi, currentVolume, averageVolume, priceSlope, rangePercent, consolidationTooLong }, basic);
     }
 
     function clampScore(value, max = 100) {
@@ -2210,10 +2248,24 @@
 
     function riskQualityScoreV2(stopLossPercent, maxStopLossPercent) {
       if (!Number.isFinite(stopLossPercent) || !Number.isFinite(maxStopLossPercent) || maxStopLossPercent <= 0) return 0;
-      if (stopLossPercent <= maxStopLossPercent * 0.65) return 15;
-      if (stopLossPercent <= maxStopLossPercent * 0.85) return 12;
-      if (stopLossPercent <= maxStopLossPercent) return 8;
+      if (stopLossPercent <= maxStopLossPercent * 0.65) return 30;
+      if (stopLossPercent <= maxStopLossPercent * 0.85) return 24;
+      if (stopLossPercent <= maxStopLossPercent) return 20;
       return 0;
+    }
+
+    function rrScoreFromRatio(rr) {
+      if (!Number.isFinite(rr)) return 0;
+      if (rr >= 2) return 30;
+      if (rr >= 1.8) return 24;
+      if (rr >= 1.5) return 20;
+      if (rr >= 1.2) return 12;
+      return 0;
+    }
+
+    function capSignalLevel(level, cap) {
+      const ranks = { D: 0, C: 1, B: 2, A: 3, S: 4, "S+": 5 };
+      return ranks[level] <= ranks[cap] ? level : cap;
     }
 
     function getMaxStopLossPercent(symbol = currentSymbol()) {
@@ -2302,42 +2354,36 @@
       const setup = setupContextV2(direction, { ...basic, atr }, macd, rsi, volumeRatio, atrInfo, ma30Deviation.overLimit);
       const planMetrics = dynamicTradePlanMetricsV2(direction, { ...basic, atr });
       const isLong = direction === "long";
-      let trendScore = 0;
+      let marketScore = 0;
+      let entryScore = 0;
       if (direction) {
-        if (isLong ? basic.price > basic.ma4h200 : basic.price < basic.ma4h200) trendScore += 15;
-        if (isLong ? basic.ma4h > basic.ma4h200 : basic.ma4h < basic.ma4h200) trendScore += 10;
-        if (isLong ? basic.ma15m30 > basic.ma15m30Prev : basic.ma15m30 < basic.ma15m30Prev) trendScore += 5;
+        if (isLong ? basic.price > basic.ma4h200 : basic.price < basic.ma4h200) marketScore += 10;
+        if (isLong ? basic.ma4h > basic.ma4h200 : basic.ma4h < basic.ma4h200) marketScore += 8;
+        if (isLong ? basic.ma15m30 > basic.ma15m30Prev : basic.ma15m30 < basic.ma15m30Prev) marketScore += 7;
+        if (isLong ? basic.ma5 > basic.ma10 : basic.ma5 < basic.ma10) marketScore += 5;
+        if (isLong ? basic.price > basic.ma10 : basic.price < basic.ma10) marketScore += 5;
+        if (setup.breakoutValid || setup.pullbackValid) {
+          marketScore += 5;
+          entryScore = 5;
+        }
       }
-      let structureScore = 0;
-      if (direction) {
-        if (isLong ? basic.ma5 > basic.ma10 : basic.ma5 < basic.ma10) structureScore += 8;
-        if (isLong ? basic.price > basic.ma10 : basic.price < basic.ma10) structureScore += 6;
-        if (setup.breakoutValid || setup.pullbackValid) structureScore += 6;
-      }
+      marketScore = clampScore(marketScore, 40);
       let momentumScore = 0;
       if (direction) {
-        if (setup.macdDirectional) momentumScore += 8;
-        if (setup.histogramStrength) momentumScore += 5;
-        if (isLong ? rsi >= 45 && rsi <= 72 : rsi >= 28 && rsi <= 55) momentumScore += 4;
-        if (volumeRatio >= 0.8) momentumScore += 3;
-        if (setup.setupType === "breakout" && volumeRatio >= 1.2) momentumScore += 3;
+        if (setup.macdDirectional) momentumScore += 9;
+        if (setup.histogramStrength) momentumScore += 7;
+        if (isLong ? rsi >= 45 && rsi <= 72 : rsi >= 28 && rsi <= 55) momentumScore += 5;
+        if (volumeRatio >= 0.8) momentumScore += 5;
+        if (setup.setupType === "breakout" && volumeRatio >= 1.2) momentumScore += 4;
       }
-      momentumScore = Math.min(20, momentumScore);
-      let entryScore = 0;
+      momentumScore = clampScore(momentumScore, 30);
       const chaseRisk = direction === "long" ? !basic.notNearHigh : direction === "short" ? !basic.notNearLow : false;
-      if (direction && setup.setupType === "pullback") {
-        if (setup.nearMa) entryScore += 8;
-        if (!(chaseRisk && volumeRatio < 1.2)) entryScore += 5;
-        if (atrInfo.normal) entryScore += 2;
-      } else if (direction && setup.setupType === "breakout") {
-        if (volumeRatio >= 1.2) entryScore += 8;
-        if (!ma30Deviation.overLimit) entryScore += 5;
-        if (atrInfo.normal) entryScore += 2;
-      }
-      const rrPart = riskQualityScoreV2(planMetrics.stopLossPercent, planMetrics.maxStopLossPercent);
+      const gradingRr = Number.isFinite(planMetrics.rrStretch) ? planMetrics.rrStretch : planMetrics.rrDisplay;
+      const rrPart = Math.min(rrScoreFromRatio(gradingRr), riskQualityScoreV2(planMetrics.stopLossPercent, planMetrics.maxStopLossPercent));
       const hardBlockReasons = [];
       if (!direction) hardBlockReasons.push("direction unclear");
       if (!Number.isFinite(planMetrics.stopLossPercent)) hardBlockReasons.push("stop distance unavailable");
+      if (Number.isFinite(gradingRr) && gradingRr < 1.2) hardBlockReasons.push("RR below 1.2");
       if (volumeRatio < 0.25) hardBlockReasons.push("volume too low");
       if (direction === "long" && rsi > 88) hardBlockReasons.push("RSI overheated");
       if (direction === "short" && rsi < 12) hardBlockReasons.push("RSI oversold");
@@ -2345,19 +2391,49 @@
       if (planMetrics.stopLossTooLarge) hardBlockReasons.push(`stop too wide ${number(planMetrics.stopLossPercent, 2)}%`);
       if (consolidationTooLong) hardBlockReasons.push("consolidation too long");
       const hardBlocked = hardBlockReasons.length > 0;
-      const totalScore = clampScore(trendScore + structureScore + momentumScore + entryScore + rrPart);
+      let scorePenalty = 0;
+      const penaltyWarnings = [];
+      if (Number.isFinite(analysis.adx) && analysis.adx < 20) {
+        scorePenalty += 10;
+        penaltyWarnings.push(`ADX 低於 20：${number(analysis.adx, 1)}`);
+      }
+      if (Number.isFinite(analysis.currentVolume) && Number.isFinite(analysis.averageVolume) && analysis.currentVolume < analysis.averageVolume) {
+        scorePenalty += 5;
+        penaltyWarnings.push("量能低於均量");
+      }
+      if (rsi >= 45 && rsi <= 55) {
+        scorePenalty += 5;
+        penaltyWarnings.push("RSI 中性，方向動能不足");
+      }
+      const ma200DistancePercent = Number.isFinite(basic.price) && Number.isFinite(basic.ma4h200) && basic.ma4h200 > 0
+        ? Math.abs(basic.price - basic.ma4h200) / basic.ma4h200 * 100
+        : null;
+      if (Number.isFinite(ma200DistancePercent) && ma200DistancePercent < 0.3) {
+        scorePenalty += 5;
+        penaltyWarnings.push("價格接近 MA200，方向可能震盪");
+      }
+      const totalScore = clampScore(marketScore + momentumScore + rrPart - scorePenalty);
       let signalLevel = "D";
-      if (!hardBlocked && totalScore >= 85 && trendScore >= 25 && entryScore >= 10 && momentumScore >= 15 && setup.setupType !== "none" && volumeRatio >= 0.9 && planMetrics.stopLossPercent <= planMetrics.maxStopLossPercent * 0.85) signalLevel = "S";
-      else if (!hardBlocked && totalScore >= 72 && trendScore >= 20 && momentumScore >= 12 && setup.setupType !== "none" && planMetrics.stopLossPercent <= planMetrics.maxStopLossPercent) signalLevel = "A";
-      else if (!hardBlocked && totalScore >= 60) signalLevel = "B";
+      const sGate = marketScore >= 35 && momentumScore >= 24 && rrPart >= 20;
+      if (!hardBlocked && totalScore >= 95 && sGate) signalLevel = "S+";
+      else if (!hardBlocked && totalScore >= 90 && sGate) signalLevel = "S";
+      else if (!hardBlocked && totalScore >= 80) signalLevel = "A";
+      else if (!hardBlocked && totalScore >= 70) signalLevel = "B";
+      else if (!hardBlocked && totalScore >= 60) signalLevel = "C";
+      if (!hardBlocked && Number.isFinite(gradingRr)) {
+        if (gradingRr < 1.2) signalLevel = "D";
+        else if (gradingRr < 1.5) signalLevel = capSignalLevel(signalLevel, "C");
+        else if (gradingRr < 1.8) signalLevel = capSignalLevel(signalLevel, "B");
+      }
       const warnings = [];
       if (ma30Deviation.overLimit) warnings.push(`MA30 偏離過高 ${number(ma30Deviation.percent, 2)}%`);
       if (chaseRisk && setup.setupType !== "breakout") warnings.push("追價風險，等待更好位置");
       if (planMetrics.stopLossTooLarge) warnings.push(`止損距離偏大 ${number(planMetrics.stopLossPercent, 2)}%`);
       if (setup.setupType === "none") warnings.push("進場型態尚未確認");
       if (volumeRatio < 0.8) warnings.push(`量能偏弱 ${number(volumeRatio, 2)}x`);
-      const canNotify = signalLevel === "S" || signalLevel === "A" || (signalLevel === "B" && totalScore >= 65 && planMetrics.rrDisplay >= 1.1);
-      const finalSignal = signalLevel === "D" ? "不交易" : `${signalLevel}級${direction === "long" ? "做多" : "做空"}`;
+      warnings.push(...penaltyWarnings);
+      const canNotify = ["S+", "S", "A"].includes(signalLevel) || (signalLevel === "B" && totalScore >= 70 && gradingRr >= 1.2);
+      const finalSignal = signalLevel === "D" ? "不建議" : `${signalLevel}級${direction === "long" ? "做多" : "做空"}`;
       const macdResult = { ...macd, label: `${macd.status} + ${macd.histogramStatus}` };
       return {
         ...analysis,
@@ -2370,12 +2446,16 @@
         volumeStatus,
         setupType: setup.setupType,
         totalScore,
-        trendScore,
-        structureScore,
+        trendScore: marketScore,
+        structureScore: marketScore,
         momentumScore,
         entryScore,
         rrScore: rrPart,
-        marketScore: totalScore,
+        marketScore,
+        scorePenalty,
+        adx: analysis.adx,
+        averageVolume: analysis.averageVolume,
+        gradingRr,
         marketGrade: signalLevel,
         entryGrade: signalLevel,
         majorTrend: direction === "long" ? "偏多" : direction === "short" ? "偏空" : "盤整",
@@ -2523,8 +2603,9 @@
       document.querySelector("#volumeStatus").textContent = `${number(data.volumeRatio, 2)}x｜${data.volumeStatus}`;
       document.querySelector("#macdStatus").textContent = data.macd.label;
       document.querySelector("#atrStatus").textContent = `${number(data.atr)}｜${number(data.atrInfo.percent, 3)}%｜${data.atrInfo.status}`;
-      const momentumTone = data.momentumScore >= 15 ? "win" : data.momentumScore >= 10 ? "flat" : "muted";
-      document.querySelector("#entryQuality").innerHTML = `大方向：${data.majorTrend || "盤整"}<br>進場型態：${formatSetupTypeLabel(data.setupType)}<br>訊號等級：${data.signalLevel || "-"}<br>總分：${data.totalScore ?? data.marketScore} / 100<br>趨勢：${data.trendScore ?? "-"}｜結構：${data.structureScore ?? "-"}｜進場：${data.entryScore ?? "-"}｜風報：${data.rrScore ?? "-"}<br><span class="${momentumTone}">動能：${data.momentumScore ?? 0}/20</span><br>MA30 偏離：${Number.isFinite(data.ma30Deviation?.percent) ? number(data.ma30Deviation.percent, 2) : "-"}% / 上限 ${number(data.ma30Deviation?.limit ?? 0, 2)}%<br>Telegram 推播：${data.telegramWillNotify ? "會推播" : "不推播"}${data.telegramWillNotify ? "" : "｜" + formatWarningLabel(data.noTelegramReason || "-")}<br>進場型態：${formatSetupTypeLabel(data.entryQualityLabel)}`;
+      const momentumTone = data.momentumScore >= 24 ? "win" : data.momentumScore >= 15 ? "flat" : "muted";
+      const displayLevel = data.signalLevel === "D" ? "不建議" : data.signalLevel || "不建議";
+      document.querySelector("#entryQuality").innerHTML = `大方向：${data.majorTrend || "盤整"}<br>進場型態：${formatSetupTypeLabel(data.setupType)}<br>等級：${displayLevel}<br>市場：${data.marketScore ?? "-"} / 40<br><span class="${momentumTone}">動能：${data.momentumScore ?? 0} / 30</span><br>風報：${data.rrScore ?? "-"} / 30<br>總分：${data.totalScore ?? "-"} / 100${data.scorePenalty ? `<br>盤整/弱動能扣分：-${data.scorePenalty}` : ""}<br>MA30 偏離：${Number.isFinite(data.ma30Deviation?.percent) ? number(data.ma30Deviation.percent, 2) : "-"}% / 上限 ${number(data.ma30Deviation?.limit ?? 0, 2)}%<br>Telegram 推播：${data.telegramWillNotify ? "會推播" : "不推播"}${data.telegramWillNotify ? "" : "｜" + formatWarningLabel(data.noTelegramReason || "-")}`;
       document.querySelector("#finalSignal").innerHTML = `<span class="signal-icon"></span>${data.finalSignal}`;
       if (data.ma200?.available) {
         document.querySelector("#ma200Value").textContent = number(data.ma200.value ?? marketValue("ma4h200"));
@@ -2538,8 +2619,8 @@
       setTone("volumeStatus", statusTone(data.volumeStatus));
       setTone("macdStatus", data.macd.crossType === "golden" ? "win" : data.macd.crossType === "death" ? "loss" : "flat");
       setTone("atrStatus", data.atrInfo.low ? "flat" : data.atrInfo.high ? "loss" : "win");
-      setTone("entryQuality", data.signalLevel === "S" ? "gold" : ["A", "B"].includes(data.signalLevel) ? "win" : "flat");
-      setTone("finalSignal", data.signalLevel === "S" ? "gold" : statusTone(data.finalSignal));
+      setTone("entryQuality", ["S+", "S"].includes(data.signalLevel) ? "gold" : ["A", "B"].includes(data.signalLevel) ? "win" : "flat");
+      setTone("finalSignal", ["S+", "S"].includes(data.signalLevel) ? "gold" : statusTone(data.finalSignal));
       setTone("riskWarnings", data.hardBlocked ? "flat" : data.riskWarnings.some((item) => item.includes("高") || item.includes("風險") || item.includes("偏弱")) ? "loss" : "win");
       setTone("tradePlan", data.canEnter ? statusTone(data.finalSignal) : "flat");
       setTone("ma200Trend", data.ma200?.trend === "normal" ? "win" : "flat");
