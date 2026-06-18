@@ -6,7 +6,6 @@ const SYMBOLS = ["BTC-USDT", "ETH-USDT", "SOL-USDT", "XRP-USDT", "DOGE-USDT"];
 const COOLDOWN_MINUTES = 30;
 const STATE_FILE = path.join(process.cwd(), ".cache", "signal-cooldown.json");
 const SIGNAL_RECORDS_FILE = path.join(process.cwd(), ".cache", "signal-records.json");
-const SIGNAL_INDEX_LIMIT = 200;
 const SIGNAL_EXPIRY_BARS = 48;
 
 const CONFIG = {
@@ -719,10 +718,8 @@ function loadSignalRecords() {
 
 function saveSignalRecords(records) {
   fs.mkdirSync(path.dirname(SIGNAL_RECORDS_FILE), { recursive: true });
-  const limited = records
-    .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
-    .slice(0, SIGNAL_INDEX_LIMIT);
-  fs.writeFileSync(SIGNAL_RECORDS_FILE, JSON.stringify({ records: limited, stats: computeSignalStats(limited) }, null, 2));
+  const sorted = records.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
+  fs.writeFileSync(SIGNAL_RECORDS_FILE, JSON.stringify({ records: sorted, stats: computeSignalStats(sorted) }, null, 2));
 }
 
 function signalRecordId(analysis, createdAt = Date.now()) {
@@ -828,7 +825,7 @@ function recordSignalIfEligible(records, analysis) {
     }
     return records;
   }
-  return [buildSignalRecord(analysis), ...records].slice(0, SIGNAL_INDEX_LIMIT);
+  return [buildSignalRecord(analysis), ...records];
 }
 
 function emptyBucketStats() {

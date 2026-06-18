@@ -470,7 +470,7 @@
 
     .signal-stats-grid {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(8, minmax(0, 1fr));
       gap: 12px;
       margin-bottom: 14px;
     }
@@ -521,6 +521,44 @@
       color: var(--muted);
       font-weight: 600;
       background: var(--panel-strong);
+    }
+
+    .signal-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .signal-page-size,
+    .signal-page-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .signal-page-size label,
+    .signal-pagination-summary {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .signal-page-size select {
+      width: auto;
+      min-width: 76px;
+      min-height: 38px;
+    }
+
+    .signal-page-actions .btn {
+      min-width: 88px;
+    }
+
+    .signal-pagination button:disabled,
+    .signal-pagination select:disabled {
+      cursor: not-allowed;
+      opacity: .45;
     }
 
     .score-bar {
@@ -931,6 +969,20 @@
         flex-direction: column;
       }
 
+      .signal-pagination {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .signal-page-size,
+      .signal-page-actions {
+        justify-content: space-between;
+      }
+
+      .signal-page-actions .btn {
+        flex: 1;
+      }
+
       .analysis-grid,
       body.layout-auto .analysis-grid,
       body.layout-portrait .analysis-grid {
@@ -1250,6 +1302,8 @@
         <div class="signal-stat-card"><span>多單 / 空單勝率</span><strong id="signalSideRates">-</strong></div>
         <div class="signal-stat-card"><span>回踩單 / 突破單</span><strong id="signalSetupRates">-</strong></div>
         <div class="signal-stat-card"><span>進行中訊號</span><strong id="signalOpenCount">-</strong></div>
+        <div class="signal-stat-card"><span>總盈虧 (R)</span><strong id="signalTotalPnl">-</strong></div>
+        <div class="signal-stat-card"><span>止盈1 / 止盈2 / 止損</span><strong id="signalOutcomes">-</strong></div>
       </div>
       <div class="signal-records-wrap">
         <table class="signal-records-table">
@@ -1269,6 +1323,21 @@
           </thead>
           <tbody id="signalRecords"></tbody>
         </table>
+      </div>
+      <div class="signal-pagination" aria-label="訊號紀錄分頁">
+        <div class="signal-page-size">
+          <label for="signalPageLimit">每頁筆數</label>
+          <select id="signalPageLimit">
+            <option value="20">20</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <div class="signal-pagination-summary" id="signalPaginationSummary">第 1 / 1 頁，共 0 筆</div>
+        <div class="signal-page-actions">
+          <button class="btn" id="signalPreviousPage" type="button">上一頁</button>
+          <button class="btn" id="signalNextPage" type="button">下一頁</button>
+        </div>
       </div>
     </section>
   </main>
@@ -1294,6 +1363,19 @@
     let autoUpdateCountdown = autoUpdateIntervalSeconds;
     let autoUpdateTimer = null;
     let isMarketUpdating = false;
+    let signalStatsPage = 1;
+    let signalStatsLimit = 50;
+    let signalStatsLoading = false;
+    let signalStatsRequestSequence = 0;
+    let signalStatsAbortController = null;
+    let signalStatsPagination = {
+      page: 1,
+      limit: 50,
+      total: 0,
+      totalPages: 1,
+      hasPrevious: false,
+      hasNext: false
+    };
     let latestMarketSignal = {
       decision: "等待",
       direction: null,
@@ -1978,23 +2060,70 @@
       return formatOutcomeLabel(record.outcome);
     }
 
-    async function fetchSignalStats() {
+    async function fetchSignalStats(page = signalStatsPage, limit = signalStatsLimit, signal) {
       const url = signalStatsEndpoint();
       if (!url) throw new Error("尚未設定 BingX API Proxy，無法讀取 Worker 訊號統計。");
-      const response = await fetch(url.toString(), { cache: "no-store" });
-      if (!response.ok) throw new Error(`訊號統計 HTTP ${response.status}`);
+      url.searchParams.set("page", String(page));
+      url.searchParams.set("limit", String(limit));
+      const response = await fetch(url.toString(), { cache: "no-store", signal });
+      if (!response.ok) {
+        const errorPayload = await response.json().catch(() => null);
+        throw new Error(errorPayload?.error || `訊號統計 HTTP ${response.status}`);
+      }
       return response.json();
+    }
+
+    function renderSignalPagination(pagination = signalStatsPagination) {
+      signalStatsPagination = {
+        page: Number(pagination.page) || 1,
+        limit: Number(pagination.limit) || signalStatsLimit,
+        total: Number(pagination.total) || 0,
+        totalPages: Math.max(1, Number(pagination.totalPages) || 1),
+        hasPrevious: Boolean(pagination.hasPrevious),
+        hasNext: Boolean(pagination.hasNext)
+      };
+      signalStatsPage = signalStatsPagination.page;
+      signalStatsLimit = signalStatsPagination.limit;
+      const limitSelect = document.querySelector("#signalPageLimit");
+      if (limitSelect) limitSelect.value = String(signalStatsLimit);
+      document.querySelector("#signalPaginationSummary").textContent =
+        `第 ${signalStatsPagination.page} / ${signalStatsPagination.totalPages} 頁，共 ${signalStatsPagination.total} 筆`;
+      document.querySelector("#signalPreviousPage").disabled = signalStatsLoading || !signalStatsPagination.hasPrevious;
+      document.querySelector("#signalNextPage").disabled = signalStatsLoading || !signalStatsPagination.hasNext;
+    }
+
+    function setSignalStatsLoading(loading) {
+      signalStatsLoading = loading;
+      const refreshButton = document.querySelector("#refreshSignalStatsBtn");
+      const limitSelect = document.querySelector("#signalPageLimit");
+      if (refreshButton) refreshButton.disabled = loading;
+      if (limitSelect) limitSelect.disabled = loading;
+      if (loading) {
+        document.querySelector("#signalStatsStatus").textContent = "載入中...";
+        document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="10">正在載入訊號紀錄...</td></tr>`;
+      }
+      renderSignalPagination(signalStatsPagination);
     }
 
     function renderSignalStats(payload) {
       const stats = payload?.stats || {};
       const recentSignals = Array.isArray(payload?.recentSignals) ? payload.recentSignals : [];
+      const pagination = payload?.pagination || {
+        page: 1,
+        limit: signalStatsLimit,
+        total: recentSignals.length,
+        totalPages: 1,
+        hasPrevious: false,
+        hasNext: false
+      };
       document.querySelector("#signalTotal").textContent = stats.totalSignals ?? 0;
       document.querySelector("#signalWinRate").textContent = percentText(stats.overallWinRate);
       document.querySelector("#signalGradeRates").innerHTML = `S+ ${bucketRate(stats.byLevel?.["S+"])}<br>S ${bucketRate(stats.byLevel?.S)}<br>A ${bucketRate(stats.byLevel?.A)}<br>B ${bucketRate(stats.byLevel?.B)}`;
       document.querySelector("#signalSideRates").innerHTML = `多 ${bucketRate(stats.byDirection?.long)}<br>空 ${bucketRate(stats.byDirection?.short)}`;
       document.querySelector("#signalSetupRates").innerHTML = `回踩單 ${bucketRate(stats.bySetupType?.pullback)}<br>突破單 ${bucketRate(stats.bySetupType?.breakout)}`;
       document.querySelector("#signalOpenCount").textContent = stats.openSignals ?? 0;
+      document.querySelector("#signalTotalPnl").textContent = Number.isFinite(Number(stats.totalPnlR)) ? `${number(Number(stats.totalPnlR), 2)} R` : "-";
+      document.querySelector("#signalOutcomes").innerHTML = `止盈1 ${stats.tp1Hits ?? 0}<br>止盈2 ${stats.tp2Hits ?? 0}<br>止損 ${stats.slHits ?? 0}`;
       document.querySelector("#signalRecords").innerHTML = recentSignals.length
         ? recentSignals.map((record) => `
           <tr>
@@ -2011,14 +2140,30 @@
           </tr>
         `).join("")
         : `<tr><td colspan="10">目前沒有訊號紀錄</td></tr>`;
-      document.querySelector("#signalStatsStatus").textContent = `最後更新：${new Date().toLocaleString("zh-TW", { hour12: false })}`;
+      renderSignalPagination(pagination);
+      document.querySelector("#signalStatsStatus").textContent = pagination.total
+        ? `最後更新：${new Date().toLocaleString("zh-TW", { hour12: false })}`
+        : "目前沒有訊號資料";
     }
-    async function refreshSignalStats() {
+
+    async function refreshSignalStats(targetPage = signalStatsPage) {
+      if (signalStatsLoading) return;
+      const requestId = ++signalStatsRequestSequence;
+      signalStatsAbortController?.abort();
+      signalStatsAbortController = new AbortController();
+      setSignalStatsLoading(true);
       try {
-        renderSignalStats(await fetchSignalStats());
+        const payload = await fetchSignalStats(targetPage, signalStatsLimit, signalStatsAbortController.signal);
+        if (requestId !== signalStatsRequestSequence) return;
+        renderSignalStats(payload);
       } catch (error) {
-        document.querySelector("#signalStatsStatus").textContent = error.message || "訊號統計讀取失敗";
-        document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="10">訊號統計讀取失敗</td></tr>`;
+        if (error.name === "AbortError" || requestId !== signalStatsRequestSequence) return;
+        document.querySelector("#signalStatsStatus").textContent = `API 錯誤：${error.message || "訊號統計讀取失敗"}`;
+        document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="10">API 錯誤，無法載入訊號紀錄</td></tr>`;
+      } finally {
+        if (requestId === signalStatsRequestSequence) {
+          setSignalStatsLoading(false);
+        }
       }
     }
 
@@ -2908,7 +3053,22 @@
     document.querySelector("#marketForm").addEventListener("submit", (event) => {
       event.preventDefault();
     });
-    document.querySelector("#refreshSignalStatsBtn")?.addEventListener("click", refreshSignalStats);
+    document.querySelector("#refreshSignalStatsBtn")?.addEventListener("click", () => refreshSignalStats(signalStatsPage));
+    document.querySelector("#signalPageLimit")?.addEventListener("change", (event) => {
+      const nextLimit = Number(event.target.value);
+      if (![20, 50, 100].includes(nextLimit) || signalStatsLoading) return;
+      signalStatsLimit = nextLimit;
+      signalStatsPage = 1;
+      refreshSignalStats(1);
+    });
+    document.querySelector("#signalPreviousPage")?.addEventListener("click", () => {
+      if (signalStatsLoading || !signalStatsPagination.hasPrevious) return;
+      refreshSignalStats(signalStatsPage - 1);
+    });
+    document.querySelector("#signalNextPage")?.addEventListener("click", () => {
+      if (signalStatsLoading || !signalStatsPagination.hasNext) return;
+      refreshSignalStats(signalStatsPage + 1);
+    });
 
     loadLayoutMode();
     loadTelegramSettings();

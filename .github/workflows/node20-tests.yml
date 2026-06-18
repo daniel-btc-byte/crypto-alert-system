@@ -1,0 +1,35 @@
+name: Node 20 Tests
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "cloudflare-worker/bingx-proxy.js"
+      - "tests/**"
+      - ".github/workflows/node20-tests.yml"
+  pull_request:
+    paths:
+      - "cloudflare-worker/bingx-proxy.js"
+      - "tests/**"
+      - ".github/workflows/node20-tests.yml"
+
+jobs:
+  signal-index:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check worker syntax
+        run: node --check cloudflare-worker/bingx-proxy.js
+
+      - name: Run all tests
+        run: node --test

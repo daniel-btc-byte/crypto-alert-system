@@ -4,8 +4,9 @@ const SCAN_SYMBOLS = ["BTC-USDT", "ETH-USDT", "SOL-USDT", "XRP-USDT", "DOGE-USDT
 const ALLOWED_INTERVALS = new Set(["15m", "4h"]);
 const COOLDOWN_MINUTES = 30;
 const SIGNAL_INDEX_KEY = "signal:index";
+const SIGNAL_INDEX_VERSION_KEY = "signal:index:version";
+const SIGNAL_INDEX_VERSION = "2";
 const SIGNAL_STATS_KEY = "signal:stats";
-const SIGNAL_INDEX_LIMIT = 200;
 const SIGNAL_EXPIRY_BARS = 48;
 
 const CONFIG = {
@@ -824,7 +825,11 @@ async function readSignalIndex(env) {
 
 async function writeSignalIndex(env, index) {
   if (!env.SIGNAL_KV) return;
-  await env.SIGNAL_KV.put(SIGNAL_INDEX_KEY, JSON.stringify(index.slice(0, SIGNAL_INDEX_LIMIT)));
+  const uniqueIndex = Array.from(new Set(Array.isArray(index) ? index : []));
+  await Promise.all([
+    env.SIGNAL_KV.put(SIGNAL_INDEX_KEY, JSON.stringify(uniqueIndex)),
+    env.SIGNAL_KV.put(SIGNAL_INDEX_VERSION_KEY, SIGNAL_INDEX_VERSION)
+  ]);
 }
 
 async function readSignalRecord(env, id) {
@@ -837,14 +842,89 @@ async function writeSignalRecord(env, record) {
   await env.SIGNAL_KV.put(`signal:${record.id}`, JSON.stringify(record));
 }
 
-async function recentSignalRecords(env, limit = SIGNAL_INDEX_LIMIT) {
-  const index = await readSignalIndex(env);
-  const records = [];
-  for (const id of index.slice(0, limit)) {
-    const record = await readSignalRecord(env, id);
-    if (record) records.push(record);
-  }
-  return records;
+async function signalRecordsByIds(env, ids) {
+  if (!env.SIGNAL_KV || !Array.isArray(ids) || !ids.length) return [];
+  const records = await Promise.all(ids.map((id) => readSignalRecord(env, id)));
+  return records.filter(Boolean);
+}
+
+async function recentSignalRecords(env, limit = null) {
+  const index = await ensureCompleteSignalIndex(env);
+  const ids = Number.isFinite(limit) ? index.slice(0, limit) : index;
+  return signalRecordsByIds(env, ids);
+}
+
+function signalCreatedAtFromId(id) {
+  const value = Number(String(id || "").split(":").at(-1));
+  return Number.isFinite(value) ? value : 0;
+}
+
+async function rebuildCompleteSignalIndex(env) {
+  if (!env.SIGNAL_KV) return [];
+  if (typeof env.SIGNAL_KV.list !== "function") return readSignalIndex(env);
+  const ids = [];
+  let cursor;
+  do {
+    const page = await env.SIGNAL_KV.list({
+      prefix: "signal:",
+      limit: 1000,
+      ...(cursor ? { cursor } : {})
+    });
+    const pageIds = (page.keys || [])
+      .map((item) => item.name)
+      .filter((name) => name !== SIGNAL_INDEX_KEY && name !== SIGNAL_INDEX_VERSION_KEY && name !== SIGNAL_STATS_KEY)
+      .map((name) => name.slice("signal:".length))
+      .filter(Boolean);
+    ids.push(...pageIds);
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor);
+  const sortedIds = Array.from(new Set(ids)).sort((a, b) => {
+    const timeDifference = signalCreatedAtFromId(b) - signalCreatedAtFromId(a);
+    return timeDifference || String(b).localeCompare(String(a));
+  });
+  await writeSignalIndex(env, sortedIds);
+  return sortedIds;
+}
+
+async function ensureCompleteSignalIndex(env) {
+  if (!env.SIGNAL_KV) return [];
+  const [index, version] = await Promise.all([
+    readSignalIndex(env),
+    env.SIGNAL_KV.get(SIGNAL_INDEX_VERSION_KEY).catch(() => null)
+  ]);
+  if (version === SIGNAL_INDEX_VERSION) return index;
+  const rebuiltIndex = await rebuildCompleteSignalIndex(env);
+  await rebuildSignalStats(env);
+  return rebuiltIndex;
+}
+
+async function allSignalRecords(env) {
+  const index = await ensureCompleteSignalIndex(env);
+  return signalRecordsByIds(env, index);
+}
+
+function parsePagination(requestUrl) {
+  const rawPage = requestUrl.searchParams.get("page");
+  const rawLimit = requestUrl.searchParams.get("limit");
+  const parseInteger = (rawValue, fallback, name, minimum, maximum = Number.MAX_SAFE_INTEGER) => {
+    if (rawValue === null) return fallback;
+    if (!rawValue.trim() || !/^\d+$/.test(rawValue.trim())) {
+      const error = new Error(`${name} 必須是有效的正整數`);
+      error.status = 400;
+      throw error;
+    }
+    const value = Number(rawValue);
+    if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+      const error = new Error(`${name} 必須介於 ${minimum} 到 ${maximum} 之間`);
+      error.status = 400;
+      throw error;
+    }
+    return value;
+  };
+  return {
+    page: parseInteger(rawPage, 1, "page", 1),
+    limit: parseInteger(rawLimit, 50, "limit", 20, 100)
+  };
 }
 
 function buildSignalRecord(analysis) {
@@ -924,7 +1004,7 @@ async function updateOpenSignalRecords(env, symbol, klines15m) {
 
 async function recordSignalIfEligible(env, analysis) {
   if (!env.SIGNAL_KV || !isValidBacktestSignal(analysis) || !hasValidTradePlan(analysis)) return null;
-  const index = await readSignalIndex(env);
+  const index = await ensureCompleteSignalIndex(env);
   const records = await recentSignalRecords(env);
   const matchingOpen = records.find((record) => (record.status === "OPEN" || record.result === "OPEN")
     && record.symbol === analysis.symbol
@@ -953,7 +1033,7 @@ async function recordSignalIfEligible(env, analysis) {
 
   const record = buildSignalRecord(analysis);
   await writeSignalRecord(env, record);
-  await writeSignalIndex(env, [record.id, ...index.filter((id) => id !== record.id)].slice(0, SIGNAL_INDEX_LIMIT));
+  await writeSignalIndex(env, [record.id, ...index.filter((id) => id !== record.id)]);
   await rebuildSignalStats(env);
   return record;
 }
@@ -980,6 +1060,7 @@ function computeSignalStats(records) {
     slHits: records.filter((item) => item.outcome === "SL_HIT").length,
     expired: records.filter((item) => item.outcome === "EXPIRED").length,
     ambiguous: records.filter((item) => item.outcome === "AMBIGUOUS").length,
+    totalPnlR: 0,
     overallWinRate: null,
     byLevel: { "S+": emptyBucketStats(), S: emptyBucketStats(), A: emptyBucketStats(), B: emptyBucketStats(), C: emptyBucketStats() },
     byDirection: { long: emptyBucketStats(), short: emptyBucketStats() },
@@ -991,6 +1072,12 @@ function computeSignalStats(records) {
   const resolved = records.filter((item) => item.status !== "OPEN");
   const wins = stats.tp1Hits + stats.tp2Hits;
   const losses = stats.slHits;
+  stats.totalPnlR = records.reduce((total, record) => {
+    if (record.outcome === "TP2_HIT") return total + (Number(record.rrToTp2) || 2.5);
+    if (record.outcome === "TP1_HIT") return total + (Number(record.rrToTp1) || 1.5);
+    if (record.outcome === "SL_HIT") return total - 1;
+    return total;
+  }, 0);
   stats.overallWinRate = wins + losses ? wins / (wins + losses) * 100 : null;
   const barsHeld = resolved.map((item) => Number(item.barsHeld)).filter(Number.isFinite);
   stats.averageBarsHeld = barsHeld.length ? average(barsHeld) : null;
@@ -1015,18 +1102,57 @@ function computeSignalStats(records) {
 
 async function rebuildSignalStats(env) {
   if (!env.SIGNAL_KV) return null;
-  const records = await recentSignalRecords(env);
+  const records = await allSignalRecords(env);
   const stats = computeSignalStats(records);
   await env.SIGNAL_KV.put(SIGNAL_STATS_KEY, JSON.stringify(stats));
   return stats;
 }
 
-async function handleSignalStats(env) {
-  if (!env.SIGNAL_KV) return json({ stats: computeSignalStats([]), recentSignals: [] });
-  const records = await recentSignalRecords(env, 200);
-  const stats = computeSignalStats(records);
-  await env.SIGNAL_KV.put(SIGNAL_STATS_KEY, JSON.stringify(stats));
-  return json({ stats, recentSignals: records.slice(0, 10) });
+async function readCachedSignalStats(env) {
+  if (!env.SIGNAL_KV) return computeSignalStats([]);
+  const stats = await env.SIGNAL_KV.get(SIGNAL_STATS_KEY, { type: "json" }).catch(() => null);
+  return stats && typeof stats === "object" ? stats : null;
+}
+
+async function handleSignalStats(env, requestUrl) {
+  const requested = parsePagination(requestUrl);
+  if (!env.SIGNAL_KV) {
+    return json({
+      stats: computeSignalStats([]),
+      recentSignals: [],
+      pagination: {
+        page: 1,
+        limit: requested.limit,
+        total: 0,
+        totalPages: 1,
+        hasPrevious: false,
+        hasNext: false
+      }
+    });
+  }
+  const index = await ensureCompleteSignalIndex(env);
+  let stats = await readCachedSignalStats(env);
+  if (!stats || Number(stats.totalSignals) !== index.length) {
+    stats = await rebuildSignalStats(env);
+  }
+  const total = index.length;
+  const totalPages = Math.max(1, Math.ceil(total / requested.limit));
+  const page = Math.min(requested.page, totalPages);
+  const offset = (page - 1) * requested.limit;
+  const pageIds = index.slice(offset, offset + requested.limit);
+  const recentSignals = await signalRecordsByIds(env, pageIds);
+  return json({
+    stats,
+    recentSignals,
+    pagination: {
+      page,
+      limit: requested.limit,
+      total,
+      totalPages,
+      hasPrevious: page > 1,
+      hasNext: page < totalPages
+    }
+  });
 }
 
 function setupTypeLabel(type) {
@@ -1200,18 +1326,18 @@ export default {
     try {
       if (requestUrl.pathname === "/price") return await handlePrice(requestUrl);
       if (requestUrl.pathname === "/klines") return await handleKlines(requestUrl);
-      if (requestUrl.pathname === "/signals/stats") return await handleSignalStats(env);
+      if (requestUrl.pathname === "/signals/stats") return await handleSignalStats(env, requestUrl);
 
       return json({
         error: "Not found",
         routes: [
           "/price?symbol=BTC-USDT",
           "/klines?symbol=BTC-USDT&interval=15m&limit=200",
-          "/signals/stats"
+          "/signals/stats?page=1&limit=50"
         ]
       }, 404);
     } catch (error) {
-      return json({ error: error.message }, 500);
+      return json({ error: error.message }, Number(error.status) || 500);
     }
   },
 
