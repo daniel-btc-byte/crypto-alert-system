@@ -446,7 +446,7 @@ function trendEnvironmentV2(basic) {
 
 function dynamicTradePlanMetrics(side, basic) {
   const rrToTp1 = 1.5;
-  const rrToTp2 = 2.5;
+  const rrToTp2 = 2.0;
   if (!side || !Number.isFinite(basic.price)) return { rr: null, rrToTp1: null, rrToTp2: null, rrDisplay: null, rrStretch: null };
   const entry = basic.price;
   const minStopLossPercent = CONFIG.minStopLossPercent[baseSymbol(basic.symbol)] ?? 1;
@@ -749,6 +749,9 @@ function buildSignalRecord(analysis) {
     symbol: analysis.symbol,
     direction: analysis.direction,
     signalLevel: analysis.signalLevel,
+    initialSignalLevel: analysis.signalLevel,
+    currentSignalLevel: analysis.signalLevel,
+    lastSeenScore: analysis.totalScore,
     setupType: analysis.setupType,
     totalScore: analysis.totalScore,
     trendScore: analysis.trendScore,
@@ -810,16 +813,13 @@ function recordSignalIfEligible(records, analysis) {
     && record.setupType === analysis.setupType);
   if (matchingOpenIndex >= 0) {
     const current = records[matchingOpenIndex];
-    if (signalLevelRank(analysis.signalLevel) > signalLevelRank(current.signalLevel)) {
+    const currentLevel = current.currentSignalLevel || current.signalLevel;
+    if (signalLevelRank(analysis.signalLevel) > signalLevelRank(currentLevel)) {
       records[matchingOpenIndex] = {
         ...current,
-        signalLevel: analysis.signalLevel,
-        totalScore: analysis.totalScore,
-        trendScore: analysis.trendScore,
-        structureScore: analysis.structureScore,
-        momentumScore: analysis.momentumScore,
-        entryScore: analysis.entryScore,
-        rrScore: analysis.rrScore,
+        initialSignalLevel: current.initialSignalLevel || current.signalLevel,
+        currentSignalLevel: analysis.signalLevel,
+        lastSeenScore: analysis.totalScore,
         warnings: Array.from(new Set([...(current.warnings || []), ...(analysis.warnings || [])]))
       };
     }
@@ -851,6 +851,7 @@ function computeSignalStats(records) {
     expired: records.filter((item) => item.outcome === "EXPIRED").length,
     ambiguous: records.filter((item) => item.outcome === "AMBIGUOUS").length,
     overallWinRate: null,
+    overallWinRateIncludingExpired: null,
     byLevel: { "S+": emptyBucketStats(), S: emptyBucketStats(), A: emptyBucketStats(), B: emptyBucketStats(), C: emptyBucketStats() },
     byDirection: { long: emptyBucketStats(), short: emptyBucketStats() },
     bySetupType: { pullback: emptyBucketStats(), breakout: emptyBucketStats() },
@@ -859,12 +860,15 @@ function computeSignalStats(records) {
   };
   const wins = stats.tp1Hits + stats.tp2Hits;
   const losses = stats.slHits;
+  const expired = stats.expired;
   stats.overallWinRate = wins + losses ? wins / (wins + losses) * 100 : null;
+  stats.overallWinRateIncludingExpired = wins + losses + expired ? wins / (wins + losses + expired) * 100 : null;
   const resolved = records.filter((item) => item.status !== "OPEN");
   const barsHeld = resolved.map((item) => Number(item.barsHeld)).filter(Number.isFinite);
   stats.averageBarsHeld = barsHeld.length ? average(barsHeld) : null;
   for (const record of records) {
-    if (stats.byLevel[record.signalLevel]) addBucketResult(stats.byLevel[record.signalLevel], record);
+    const initialLevel = record.initialSignalLevel || record.signalLevel || record.currentSignalLevel;
+    if (stats.byLevel[initialLevel]) addBucketResult(stats.byLevel[initialLevel], record);
     if (stats.byDirection[record.direction]) addBucketResult(stats.byDirection[record.direction], record);
     if (stats.bySetupType[record.setupType]) addBucketResult(stats.bySetupType[record.setupType], record);
   }

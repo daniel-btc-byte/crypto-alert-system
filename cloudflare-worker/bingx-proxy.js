@@ -535,7 +535,7 @@ function trendEnvironmentV2(basic) {
 
 function dynamicTradePlanMetrics(side, basic) {
   const rrToTp1 = 1.5;
-  const rrToTp2 = 2.5;
+  const rrToTp2 = 2.0;
   if (!side || !Number.isFinite(basic.price)) return { rr: null, rrToTp1: null, rrToTp2: null, rrDisplay: null, rrStretch: null };
   const entry = basic.price;
   const minStopLossPercent = CONFIG.minStopLossPercent[baseSymbol(basic.symbol)] ?? 1;
@@ -939,6 +939,9 @@ function buildSignalRecord(analysis) {
     symbol: analysis.symbol,
     direction: analysis.direction,
     signalLevel: analysis.signalLevel,
+    initialSignalLevel: analysis.signalLevel,
+    currentSignalLevel: analysis.signalLevel,
+    lastSeenScore: analysis.totalScore,
     setupType: analysis.setupType,
     totalScore: analysis.totalScore,
     trendScore: analysis.trendScore,
@@ -1012,16 +1015,13 @@ async function recordSignalIfEligible(env, analysis) {
     && record.setupType === analysis.setupType);
 
   if (matchingOpen) {
-    if (signalLevelRank(analysis.signalLevel) > signalLevelRank(matchingOpen.signalLevel)) {
+    const currentLevel = matchingOpen.currentSignalLevel || matchingOpen.signalLevel;
+    if (signalLevelRank(analysis.signalLevel) > signalLevelRank(currentLevel)) {
       const upgraded = {
         ...matchingOpen,
-        signalLevel: analysis.signalLevel,
-        totalScore: analysis.totalScore,
-        trendScore: analysis.trendScore,
-        structureScore: analysis.structureScore,
-        momentumScore: analysis.momentumScore,
-        entryScore: analysis.entryScore,
-        rrScore: analysis.rrScore,
+        initialSignalLevel: matchingOpen.initialSignalLevel || matchingOpen.signalLevel,
+        currentSignalLevel: analysis.signalLevel,
+        lastSeenScore: analysis.totalScore,
         warnings: Array.from(new Set([...(matchingOpen.warnings || []), ...(analysis.warnings || [])]))
       };
       await writeSignalRecord(env, upgraded);
@@ -1062,6 +1062,7 @@ function computeSignalStats(records) {
     ambiguous: records.filter((item) => item.outcome === "AMBIGUOUS").length,
     totalPnlR: 0,
     overallWinRate: null,
+    overallWinRateIncludingExpired: null,
     byLevel: { "S+": emptyBucketStats(), S: emptyBucketStats(), A: emptyBucketStats(), B: emptyBucketStats(), C: emptyBucketStats() },
     byDirection: { long: emptyBucketStats(), short: emptyBucketStats() },
     bySetupType: { pullback: emptyBucketStats(), breakout: emptyBucketStats() },
@@ -1072,18 +1073,21 @@ function computeSignalStats(records) {
   const resolved = records.filter((item) => item.status !== "OPEN");
   const wins = stats.tp1Hits + stats.tp2Hits;
   const losses = stats.slHits;
+  const expired = stats.expired;
   stats.totalPnlR = records.reduce((total, record) => {
-    if (record.outcome === "TP2_HIT") return total + (Number(record.rrToTp2) || 2.5);
+    if (record.outcome === "TP2_HIT") return total + (Number(record.rrToTp2) || 2.0);
     if (record.outcome === "TP1_HIT") return total + (Number(record.rrToTp1) || 1.5);
     if (record.outcome === "SL_HIT") return total - 1;
     return total;
   }, 0);
   stats.overallWinRate = wins + losses ? wins / (wins + losses) * 100 : null;
+  stats.overallWinRateIncludingExpired = wins + losses + expired ? wins / (wins + losses + expired) * 100 : null;
   const barsHeld = resolved.map((item) => Number(item.barsHeld)).filter(Number.isFinite);
   stats.averageBarsHeld = barsHeld.length ? average(barsHeld) : null;
 
   for (const record of records) {
-    if (stats.byLevel[record.signalLevel]) addBucketResult(stats.byLevel[record.signalLevel], record);
+    const initialLevel = record.initialSignalLevel || record.signalLevel || record.currentSignalLevel;
+    if (stats.byLevel[initialLevel]) addBucketResult(stats.byLevel[initialLevel], record);
     if (stats.byDirection[record.direction]) addBucketResult(stats.byDirection[record.direction], record);
     if (stats.bySetupType[record.setupType]) addBucketResult(stats.bySetupType[record.setupType], record);
   }
@@ -1153,6 +1157,41 @@ async function handleSignalStats(env, requestUrl) {
       hasNext: page < totalPages
     }
   });
+}
+
+async function handleClearSignals(env, requestUrl, method) {
+  if (method !== "GET") {
+    const error = new Error("Method not allowed");
+    error.status = 405;
+    throw error;
+  }
+  if (requestUrl.searchParams.get("confirm") !== "YES") {
+    return json({ ok: false, error: "Missing confirm=YES" }, 400);
+  }
+  if (!env.SIGNAL_KV) return json({ ok: true, deleted: 0 });
+  if (typeof env.SIGNAL_KV.list !== "function" || typeof env.SIGNAL_KV.delete !== "function") {
+    const error = new Error("SIGNAL_KV does not support list/delete");
+    error.status = 500;
+    throw error;
+  }
+
+  const keysToDelete = [];
+  let cursor;
+  do {
+    const page = await env.SIGNAL_KV.list({
+      prefix: "signal:",
+      limit: 1000,
+      ...(cursor ? { cursor } : {})
+    });
+    const keys = (page.keys || [])
+      .map((item) => item.name)
+      .filter((name) => String(name || "").startsWith("signal:"));
+    keysToDelete.push(...keys);
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor);
+
+  await Promise.all(keysToDelete.map((key) => env.SIGNAL_KV.delete(key)));
+  return json({ ok: true, deleted: keysToDelete.length });
 }
 
 function setupTypeLabel(type) {
@@ -1327,13 +1366,15 @@ export default {
       if (requestUrl.pathname === "/price") return await handlePrice(requestUrl);
       if (requestUrl.pathname === "/klines") return await handleKlines(requestUrl);
       if (requestUrl.pathname === "/signals/stats") return await handleSignalStats(env, requestUrl);
+      if (requestUrl.pathname === "/admin/clear-signals") return await handleClearSignals(env, requestUrl, request.method);
 
       return json({
         error: "Not found",
         routes: [
           "/price?symbol=BTC-USDT",
           "/klines?symbol=BTC-USDT&interval=15m&limit=200",
-          "/signals/stats?page=1&limit=50"
+          "/signals/stats?page=1&limit=50",
+          "/admin/clear-signals?confirm=YES"
         ]
       }, 404);
     } catch (error) {

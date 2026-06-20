@@ -222,7 +222,18 @@
     }
 
     .btn.danger {
-      color: var(--red);
+      border-color: var(--red);
+      background: var(--red);
+      color: #fff;
+    }
+
+    .btn.danger:hover {
+      filter: brightness(.94);
+    }
+
+    .btn.danger:disabled:hover {
+      background: var(--red);
+      filter: none;
     }
 
     .layout {
@@ -466,6 +477,14 @@
       justify-content: space-between;
       gap: 12px;
       margin-bottom: 14px;
+    }
+
+    .signal-stats-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
     .signal-stats-grid {
@@ -1293,7 +1312,10 @@
           <div class="note-line" id="signalStatsStatus">正在讀取訊號統計資料</div>
           <div class="note-line">回測從下一根 15m K 開始統計，訊號當根 K 不列入。</div>
         </div>
-        <button class="btn" id="refreshSignalStatsBtn" type="button">更新統計</button>
+        <div class="signal-stats-actions">
+          <button class="btn" id="refreshSignalStatsBtn" type="button">更新統計</button>
+          <button class="btn danger" id="clearSignalStatsBtn" type="button">清空回測紀錄</button>
+        </div>
       </div>
       <div class="signal-stats-grid">
         <div class="signal-stat-card"><span>總訊號</span><strong id="signalTotal">-</strong></div>
@@ -1303,7 +1325,7 @@
         <div class="signal-stat-card"><span>回踩單 / 突破單</span><strong id="signalSetupRates">-</strong></div>
         <div class="signal-stat-card"><span>進行中訊號</span><strong id="signalOpenCount">-</strong></div>
         <div class="signal-stat-card"><span>總盈虧 (R)</span><strong id="signalTotalPnl">-</strong></div>
-        <div class="signal-stat-card"><span>止盈1 / 止盈2 / 止損</span><strong id="signalOutcomes">-</strong></div>
+        <div class="signal-stat-card"><span>止盈1 / 止盈2 / 止損 / 逾時</span><strong id="signalOutcomes">-</strong></div>
       </div>
       <div class="signal-records-wrap">
         <table class="signal-records-table">
@@ -1998,6 +2020,13 @@
       return new URL("/signals/stats", window.location.origin);
     }
 
+    function clearSignalsEndpoint() {
+      const proxyUrl = bingxApiProxyUrl();
+      if (proxyUrl) return new URL("admin/clear-signals", proxyUrl + "/");
+      if (isGitHubPagesHost() || window.location.protocol === "file:") return null;
+      return new URL("/admin/clear-signals", window.location.origin);
+    }
+
     function percentText(value) {
       return Number.isFinite(value) ? `${number(value, 1)}%` : "-";
     }
@@ -2073,6 +2102,39 @@
       return response.json();
     }
 
+    async function clearSignalStats() {
+      const confirmed = window.confirm("確定要清空所有回測紀錄嗎？這會刪除 Worker KV 中所有 signal: 開頭的資料，且無法復原。");
+      if (!confirmed) return;
+
+      const url = clearSignalsEndpoint();
+      if (!url) {
+        document.querySelector("#signalStatsStatus").textContent = "尚未設定 BingX API Proxy，無法清空 Worker 回測紀錄。";
+        return;
+      }
+      url.searchParams.set("confirm", "YES");
+      const clearButton = document.querySelector("#clearSignalStatsBtn");
+      const refreshButton = document.querySelector("#refreshSignalStatsBtn");
+      if (clearButton) clearButton.disabled = true;
+      if (refreshButton) refreshButton.disabled = true;
+      document.querySelector("#signalStatsStatus").textContent = "正在清空回測紀錄...";
+      try {
+        const response = await fetch(url.toString(), { cache: "no-store" });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || payload?.ok === false) {
+          throw new Error(payload?.error || `清空回測紀錄 HTTP ${response.status}`);
+        }
+        document.querySelector("#signalStatsStatus").textContent = `已清空回測紀錄：刪除 ${payload.deleted ?? 0} 筆`;
+        signalStatsPage = 1;
+        await refreshSignalStats(1);
+      } catch (error) {
+        document.querySelector("#signalStatsStatus").textContent = `清空失敗：${error.message || "未知錯誤"}`;
+      } finally {
+        if (clearButton) clearButton.disabled = false;
+        if (refreshButton) refreshButton.disabled = false;
+      }
+    }
+
+
     function renderSignalPagination(pagination = signalStatsPagination) {
       signalStatsPagination = {
         page: Number(pagination.page) || 1,
@@ -2123,7 +2185,7 @@
       document.querySelector("#signalSetupRates").innerHTML = `回踩單 ${bucketRate(stats.bySetupType?.pullback)}<br>突破單 ${bucketRate(stats.bySetupType?.breakout)}`;
       document.querySelector("#signalOpenCount").textContent = stats.openSignals ?? 0;
       document.querySelector("#signalTotalPnl").textContent = Number.isFinite(Number(stats.totalPnlR)) ? `${number(Number(stats.totalPnlR), 2)} R` : "-";
-      document.querySelector("#signalOutcomes").innerHTML = `止盈1 ${stats.tp1Hits ?? 0}<br>止盈2 ${stats.tp2Hits ?? 0}<br>止損 ${stats.slHits ?? 0}`;
+      document.querySelector("#signalOutcomes").innerHTML = `止盈1 ${stats.tp1Hits ?? 0}<br>止盈2 ${stats.tp2Hits ?? 0}<br>止損 ${stats.slHits ?? 0}<br>逾時 ${stats.expired ?? 0}`;
       document.querySelector("#signalRecords").innerHTML = recentSignals.length
         ? recentSignals.map((record) => `
           <tr>
@@ -2444,7 +2506,7 @@
 
     function dynamicTradePlanMetricsV2(side, basic) {
       const rrToTp1 = 1.5;
-      const rrToTp2 = 2.5;
+      const rrToTp2 = 2.0;
       if (!side || !Number.isFinite(basic.price)) return { rr: null, rrToTp1: null, rrToTp2: null, rrDisplay: null, rrStretch: null };
       const entry = basic.price;
       const minStopLossPercent = getMinStopLossPercent(basic.symbol || currentSymbol());
@@ -2489,7 +2551,7 @@
     }
 
     function scoreAdvancedAnalysisV2(analysis, basic) {
-      const { volumeRatio, volumeStatus, macd, atr, rsi, consolidationTooLong = false } = analysis;
+      const { volumeRatio, volumeStatus, macd, atr, rsi } = analysis;
       const ma200 = ma200Context(basic.price, basic.ma4h200);
       const atrInfo = atrState(atr, basic.price);
       const cooldown = getCooldownState();
@@ -2534,7 +2596,6 @@
       if (direction === "short" && rsi < 12) hardBlockReasons.push("RSI oversold");
       if (atrInfo.high && atrInfo.percent > 1.8) hardBlockReasons.push("ATR extremely high");
       if (planMetrics.stopLossTooLarge) hardBlockReasons.push(`stop too wide ${number(planMetrics.stopLossPercent, 2)}%`);
-      if (consolidationTooLong) hardBlockReasons.push("consolidation too long");
       const hardBlocked = hardBlockReasons.length > 0;
       let scorePenalty = 0;
       const penaltyWarnings = [];
@@ -2558,13 +2619,14 @@
         penaltyWarnings.push("價格接近 MA200，方向可能震盪");
       }
       const totalScore = clampScore(marketScore + momentumScore + rrPart - scorePenalty);
+      const counterTrend = !direction && (env.bullScore >= 2 || env.bearScore >= 2);
       let signalLevel = "D";
       const sGate = marketScore >= 35 && momentumScore >= 24 && rrPart >= 20;
       if (!hardBlocked && totalScore >= 95 && sGate) signalLevel = "S+";
       else if (!hardBlocked && totalScore >= 90 && sGate) signalLevel = "S";
       else if (!hardBlocked && totalScore >= 80) signalLevel = "A";
-      else if (!hardBlocked && totalScore >= 70) signalLevel = "B";
-      else if (!hardBlocked && totalScore >= 60) signalLevel = "C";
+      else if (!hardBlocked && totalScore >= 70 && !counterTrend) signalLevel = "B";
+      else if (!hardBlocked && totalScore >= 60 && !counterTrend) signalLevel = "C";
       if (!hardBlocked && Number.isFinite(gradingRr)) {
         if (gradingRr < 1.2) signalLevel = "D";
         else if (gradingRr < 1.5) signalLevel = capSignalLevel(signalLevel, "C");
@@ -2623,7 +2685,7 @@
         ma30Deviation,
         chaseRisk,
         entryQualityLabel: setup.setupType,
-        canEnter: ["S", "A"].includes(signalLevel),
+        canEnter: ["S+", "S", "A"].includes(signalLevel),
         stopLossPercent: planMetrics.stopLossPercent,
         maxStopLossPercent: planMetrics.maxStopLossPercent,
         stopLossTooSmall: false,
@@ -3054,6 +3116,7 @@
       event.preventDefault();
     });
     document.querySelector("#refreshSignalStatsBtn")?.addEventListener("click", () => refreshSignalStats(signalStatsPage));
+    document.querySelector("#clearSignalStatsBtn")?.addEventListener("click", clearSignalStats);
     document.querySelector("#signalPageLimit")?.addEventListener("change", (event) => {
       const nextLimit = Number(event.target.value);
       if (![20, 50, 100].includes(nextLimit) || signalStatsLoading) return;
