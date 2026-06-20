@@ -7,6 +7,9 @@ const SIGNAL_INDEX_KEY = "signal:index";
 const SIGNAL_INDEX_VERSION_KEY = "signal:index:version";
 const SIGNAL_INDEX_VERSION = "2";
 const SIGNAL_STATS_KEY = "signal:stats";
+const SIGNAL_SNAPSHOT_INDEX_KEY = "signal:snapshots:index";
+const SIGNAL_SNAPSHOT_LIMIT = 1000;
+const SIGNAL_SNAPSHOT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const SIGNAL_EXPIRY_BARS = 48;
 
 const CONFIG = {
@@ -31,7 +34,8 @@ const CONFIG = {
     XRP: 2.5,
     DOGE: 2.5
   },
-  chaseBufferPercent: 0.3
+  chaseBufferPercent: 0.3,
+  tp3R: 2.5
 };
 
 const corsHeaders = {
@@ -533,10 +537,20 @@ function trendEnvironmentV2(basic) {
   return { direction, bullScore, bearScore, longChecks, shortChecks };
 }
 
+function strategyModes(options = {}) {
+  const tp3R = Number(options.tp3R);
+  return {
+    entryMode: options.entryMode === "conservative" ? "conservative" : "aggressive",
+    trendMode: options.trendMode === "counter" ? "counter" : "trend",
+    tp3R: Number.isFinite(tp3R) && tp3R > 0 ? tp3R : CONFIG.tp3R
+  };
+}
+
 function dynamicTradePlanMetrics(side, basic) {
   const rrToTp1 = 1.5;
   const rrToTp2 = 2.0;
-  if (!side || !Number.isFinite(basic.price)) return { rr: null, rrToTp1: null, rrToTp2: null, rrDisplay: null, rrStretch: null };
+  const rrToTp3 = Number.isFinite(Number(basic.tp3R)) && Number(basic.tp3R) > 0 ? Number(basic.tp3R) : CONFIG.tp3R;
+  if (!side || !Number.isFinite(basic.price)) return { rr: null, rrToTp1: null, rrToTp2: null, rrToTp3, rrDisplay: null, rrStretch: null };
   const entry = basic.price;
   const minStopLossPercent = CONFIG.minStopLossPercent[baseSymbol(basic.symbol)] ?? 1;
   const maxStopLossPercent = CONFIG.maxStopLossPercent[baseSymbol(basic.symbol)] ?? 2.5;
@@ -552,9 +566,10 @@ function dynamicTradePlanMetrics(side, basic) {
     const risk = entry - stop;
     const tp1 = entry + risk * rrToTp1;
     const tp2 = entry + risk * rrToTp2;
+    const tp3 = entry + risk * rrToTp3;
     const stopLossPercent = stopLossDistancePercent(entry, stop);
     const rr = risk > 0 ? rrToTp1 : null;
-    return { entry, stop, tp1, tp2, rr, rrToTp1, rrToTp2, rrDisplay: rrToTp1, rrStretch: rrToTp2, risk, stopLossPercent, minStopLossPercent, maxStopLossPercent, stopLossTooSmall: false, stopLossTooLarge: Number.isFinite(stopLossPercent) && stopLossPercent > maxStopLossPercent };
+    return { entry, stop, tp1, tp2, tp3, rr, rrToTp1, rrToTp2, rrToTp3, rrDisplay: rrToTp1, rrStretch: rrToTp2, risk, stopLossPercent, minStopLossPercent, maxStopLossPercent, stopLossTooSmall: false, stopLossTooLarge: Number.isFinite(stopLossPercent) && stopLossPercent > maxStopLossPercent };
   }
   structureStop = Math.max(
     Number.isFinite(basic.recentHigh) ? basic.recentHigh : entry,
@@ -564,9 +579,10 @@ function dynamicTradePlanMetrics(side, basic) {
   const risk = stop - entry;
   const tp1 = entry - risk * rrToTp1;
   const tp2 = entry - risk * rrToTp2;
+  const tp3 = entry - risk * rrToTp3;
   const stopLossPercent = stopLossDistancePercent(entry, stop);
   const rr = risk > 0 ? rrToTp1 : null;
-  return { entry, stop, tp1, tp2, rr, rrToTp1, rrToTp2, rrDisplay: rrToTp1, rrStretch: rrToTp2, risk, stopLossPercent, minStopLossPercent, maxStopLossPercent, stopLossTooSmall: false, stopLossTooLarge: Number.isFinite(stopLossPercent) && stopLossPercent > maxStopLossPercent };
+  return { entry, stop, tp1, tp2, tp3, rr, rrToTp1, rrToTp2, rrToTp3, rrDisplay: rrToTp1, rrStretch: rrToTp2, risk, stopLossPercent, minStopLossPercent, maxStopLossPercent, stopLossTooSmall: false, stopLossTooLarge: Number.isFinite(stopLossPercent) && stopLossPercent > maxStopLossPercent };
 }
 
 function setupContextV2(direction, basic, macd, rsi, volumeRatio, atrInfo, ma30TooFar) {
@@ -595,30 +611,76 @@ function setupContextV2(direction, basic, macd, rsi, volumeRatio, atrInfo, ma30T
   return { setupType, pullbackValid, breakoutValid, nearMa, breakoutMove, macdDirectional, histogramStrength };
 }
 
-function scoreAdvancedAnalysisV2(klines15m, basic) {
+function scoreAdvancedAnalysisV2(klines15m, basic, options = {}) {
   if (klines15m.length < 220) return null;
-  const closes = klines15m.map((item) => item.close);
-  const volumes = klines15m.map((item) => item.volume).filter(Number.isFinite);
+  const modes = strategyModes(options);
+  const closedKlines15m = klines15m.length > 60 ? klines15m.slice(0, -1) : klines15m;
+  const formingCandle = klines15m.length > closedKlines15m.length ? klines15m.at(-1) : null;
+  const closes = closedKlines15m.map((item) => item.close);
+  const volumes = closedKlines15m.map((item) => item.volume).filter(Number.isFinite);
   if (volumes.length < 20) return null;
 
   const volumeRatio = volumes.at(-1) / average(volumes.slice(-20));
   const averageVolume = average(volumes.slice(-21, -1));
   const currentVolume = volumes.at(-1);
+  const currentFormingVolume = Number(formingCandle?.volume);
+  const currentFormingVolumeRatio = Number.isFinite(currentFormingVolume) ? currentFormingVolume / average(volumes.slice(-20)) : null;
   const macd = buildMacdAnalysis(closes);
-  const atr = atr14(klines15m);
-  const adx = adx14(klines15m);
+  const atr = atr14(closedKlines15m);
+  const adx = adx14(closedKlines15m);
   const rsi = rsi14(closes);
   if (![volumeRatio, atr].every(Number.isFinite) || !macd || !Number.isFinite(rsi)) return null;
 
   const atrInfo = atrState(atr, basic.price);
   const env = trendEnvironmentV2(basic);
-  const direction = env.direction;
+  const originalDirection = env.direction;
+  let direction = originalDirection;
+  let provisionalDirection = false;
   const ma30Limit = CONFIG.ma30MaxDeviationPercent[baseSymbol(basic.symbol)] ?? 2;
   const ma30Distance = Math.abs(basic.price - basic.ma15m30) / basic.price * 100;
   const ma30TooFar = Number.isFinite(ma30Distance) && ma30Distance > ma30Limit;
+  let setup = setupContextV2(direction, { ...basic, atr }, macd, rsi, volumeRatio, atrInfo, ma30TooFar);
+  const earlyBreakoutVolumeRatio = Math.max(volumeRatio, Number(currentFormingVolumeRatio) || 0);
+  const earlyBreakoutFormingVolumeOnly = volumeRatio < 0.8 && earlyBreakoutVolumeRatio >= 0.6;
+  const provisionalLongPlan = dynamicTradePlanMetrics("long", { ...basic, atr, tp3R: modes.tp3R });
+  const provisionalLong = basic.price > basic.ma15m30
+    && basic.ma5 > basic.ma10
+    && (macd.histogramGrowing || macd.histogramNearBullFlip || macd.crossType === "golden")
+    && rsi >= 55
+    && rsi <= 78
+    && basic.price >= basic.ma4h200 * 0.997
+    && (volumeRatio >= 0.8 || earlyBreakoutFormingVolumeOnly)
+    && Number.isFinite(provisionalLongPlan.stopLossPercent)
+    && provisionalLongPlan.stopLossPercent <= provisionalLongPlan.maxStopLossPercent;
+  const provisionalShortPlan = dynamicTradePlanMetrics("short", { ...basic, atr, tp3R: modes.tp3R });
+  const provisionalShort = basic.price < basic.ma15m30
+    && basic.ma5 < basic.ma10
+    && (macd.histogramFalling || macd.histogramNearBearFlip || macd.crossType === "death")
+    && rsi >= 22
+    && rsi <= 45
+    && basic.price <= basic.ma4h200 * 1.003
+    && (volumeRatio >= 0.8 || earlyBreakoutFormingVolumeOnly)
+    && Number.isFinite(provisionalShortPlan.stopLossPercent)
+    && provisionalShortPlan.stopLossPercent <= provisionalShortPlan.maxStopLossPercent;
+  if (!direction && modes.trendMode === "counter" && provisionalLong) {
+    direction = "long";
+    provisionalDirection = true;
+    setup = setupContextV2(direction, { ...basic, atr }, macd, rsi, volumeRatio, atrInfo, ma30TooFar);
+  } else if (!direction && modes.trendMode === "counter" && provisionalShort) {
+    direction = "short";
+    provisionalDirection = true;
+    setup = setupContextV2(direction, { ...basic, atr }, macd, rsi, volumeRatio, atrInfo, ma30TooFar);
+  }
   const chaseRisk = direction === "long" ? !basic.notNearHigh : direction === "short" ? !basic.notNearLow : false;
-  const setup = setupContextV2(direction, { ...basic, atr }, macd, rsi, volumeRatio, atrInfo, ma30TooFar);
-  const plan = dynamicTradePlanMetrics(direction, { ...basic, atr });
+  const plan = direction === "long" && provisionalLong ? provisionalLongPlan : direction === "short" && provisionalShort ? provisionalShortPlan : dynamicTradePlanMetrics(direction, { ...basic, atr, tp3R: modes.tp3R });
+  const longEarlyBreakout = modes.entryMode === "aggressive"
+    && direction === "long"
+    && provisionalLong;
+  if (!setup.breakoutValid && !setup.pullbackValid && longEarlyBreakout) {
+    setup.setupType = "earlyBreakout";
+    setup.earlyBreakoutValid = true;
+    setup.formingVolumeOnly = earlyBreakoutFormingVolumeOnly;
+  }
   const isLong = direction === "long";
 
   let marketScore = 0;
@@ -629,7 +691,7 @@ function scoreAdvancedAnalysisV2(klines15m, basic) {
     if (isLong ? basic.ma15m30 > basic.ma15m30Prev : basic.ma15m30 < basic.ma15m30Prev) marketScore += 7;
     if (isLong ? basic.ma5 > basic.ma10 : basic.ma5 < basic.ma10) marketScore += 5;
     if (isLong ? basic.price > basic.ma10 : basic.price < basic.ma10) marketScore += 5;
-    if (setup.breakoutValid || setup.pullbackValid) {
+    if (setup.breakoutValid || setup.pullbackValid || setup.earlyBreakoutValid) {
       marketScore += 5;
       entryScore = 5;
     }
@@ -639,9 +701,10 @@ function scoreAdvancedAnalysisV2(klines15m, basic) {
   if (direction) {
     if (setup.macdDirectional) momentum += 9;
     if (setup.histogramStrength) momentum += 7;
-    if (isLong ? rsi >= 45 && rsi <= 72 : rsi >= 28 && rsi <= 55) momentum += 5;
+    if (setup.earlyBreakoutValid ? rsi >= 55 && rsi <= 78 : isLong ? rsi >= 45 && rsi <= 72 : rsi >= 28 && rsi <= 55) momentum += 5;
     if (volumeRatio >= 0.8) momentum += 5;
-    if (setup.setupType === "breakout" && volumeRatio >= 1.2) momentum += 4;
+    else if (setup.earlyBreakoutValid && earlyBreakoutFormingVolumeOnly) momentum += 3;
+    if ((setup.setupType === "breakout" && volumeRatio >= 1.2) || setup.earlyBreakoutValid) momentum += 4;
   }
   momentum = clampScore(momentum, 30);
   const gradingRr = Number.isFinite(plan.rrStretch) ? plan.rrStretch : plan.rrDisplay;
@@ -650,7 +713,7 @@ function scoreAdvancedAnalysisV2(klines15m, basic) {
   if (!direction) hardBlockReasons.push("direction unclear");
   if (!Number.isFinite(plan.stopLossPercent)) hardBlockReasons.push("stop distance unavailable");
   if (Number.isFinite(gradingRr) && gradingRr < 1.2) hardBlockReasons.push("RR below 1.2");
-  if (volumeRatio < 0.25) hardBlockReasons.push("volume too low");
+  if ((setup.earlyBreakoutValid ? earlyBreakoutVolumeRatio : volumeRatio) < 0.25) hardBlockReasons.push("volume too low");
   if (direction === "long" && rsi > 88) hardBlockReasons.push("RSI overheated");
   if (direction === "short" && rsi < 12) hardBlockReasons.push("RSI oversold");
   if (atrInfo.high && atrInfo.percent > 1.8) hardBlockReasons.push("ATR extremely high");
@@ -678,7 +741,7 @@ function scoreAdvancedAnalysisV2(klines15m, basic) {
     penaltyWarnings.push("價格接近 MA200，方向可能震盪");
   }
   const totalScore = clampScore(marketScore + momentum + rrPart - scorePenalty);
-  const counterTrend = !direction && (env.bullScore >= 2 || env.bearScore >= 2);
+  const counterTrend = modes.trendMode !== "counter" && !direction && (env.bullScore >= 2 || env.bearScore >= 2);
   let signalLevel = "D";
   const sGate = marketScore >= 35 && momentum >= 24 && rrPart >= 20;
   if (!hardBlocked && totalScore >= 95 && sGate) signalLevel = "S+";
@@ -686,6 +749,8 @@ function scoreAdvancedAnalysisV2(klines15m, basic) {
   else if (!hardBlocked && totalScore >= 80) signalLevel = "A";
   else if (!hardBlocked && totalScore >= 70 && !counterTrend) signalLevel = "B";
   else if (!hardBlocked && totalScore >= 60 && !counterTrend) signalLevel = "C";
+  if (setup.earlyBreakoutValid && setup.formingVolumeOnly) signalLevel = capSignalLevel(signalLevel, "B");
+  if (provisionalDirection) signalLevel = capSignalLevel(signalLevel, "B");
   if (!hardBlocked && Number.isFinite(gradingRr)) {
     if (gradingRr < 1.2) signalLevel = "D";
     else if (gradingRr < 1.5) signalLevel = capSignalLevel(signalLevel, "C");
@@ -694,10 +759,12 @@ function scoreAdvancedAnalysisV2(klines15m, basic) {
 
   const warnings = [];
   if (ma30TooFar) warnings.push(`MA30 deviation high ${number(ma30Distance, 2)}%`);
-  if (chaseRisk && setup.setupType !== "breakout") warnings.push("chase risk, wait for better entry");
+  if (chaseRisk && !["breakout", "earlyBreakout"].includes(setup.setupType)) warnings.push("chase risk, wait for better entry");
   if (plan.stopLossTooLarge) warnings.push(`stop distance high ${number(plan.stopLossPercent, 2)}%`);
   if (setup.setupType === "none") warnings.push("setup not confirmed");
-  if (volumeRatio < 0.8) warnings.push(`volume weak ${number(volumeRatio, 2)}x`);
+  if (volumeRatio < 0.8 && !setup.earlyBreakoutValid) warnings.push(`volume weak ${number(volumeRatio, 2)}x`);
+  if (setup.earlyBreakoutValid && setup.formingVolumeOnly) warnings.push(`forming candle volume early warning ${number(earlyBreakoutVolumeRatio, 2)}x`);
+  if (provisionalDirection) warnings.push("早段方向，尚未完全確認");
   warnings.push(...penaltyWarnings);
   const nonTradeReasons = hardBlockReasons.length ? [...hardBlockReasons] : signalLevel === "D" ? ["score below 60"] : [];
   const canNotify = ["S+", "S", "A"].includes(signalLevel) || (signalLevel === "B" && totalScore >= 70 && gradingRr >= 1.2);
@@ -706,6 +773,8 @@ function scoreAdvancedAnalysisV2(klines15m, basic) {
   return {
     symbol: basic.symbol,
     direction,
+    originalDirection,
+    provisionalDirection,
     sideLabel: direction === "long" ? "做多" : direction === "short" ? "做空" : "觀察",
     finalSignal,
     signalLevel,
@@ -720,6 +789,8 @@ function scoreAdvancedAnalysisV2(klines15m, basic) {
     scorePenalty,
     adx,
     averageVolume,
+    currentFormingVolume,
+    currentFormingVolumeRatio,
     gradingRr,
     canNotify,
     price: basic.price,
@@ -727,9 +798,11 @@ function scoreAdvancedAnalysisV2(klines15m, basic) {
     stop: plan.stop,
     tp1: plan.tp1,
     tp2: plan.tp2,
+    tp3: plan.tp3,
     rr: plan.rr,
     rrToTp1: plan.rrToTp1,
     rrToTp2: plan.rrToTp2,
+    rrToTp3: plan.rrToTp3,
     rrDisplay: plan.rrDisplay,
     rrStretch: plan.rrStretch,
     volumeRatio,
@@ -740,7 +813,10 @@ function scoreAdvancedAnalysisV2(klines15m, basic) {
     hardBlockReasons,
     nonTradeReasons,
     ma30Distance,
+    ma200Distance: Number.isFinite(basic.ma4h200) && basic.ma4h200 > 0 ? (basic.price - basic.ma4h200) / basic.ma4h200 * 100 : null,
     ma30TooFar,
+    entryMode: modes.entryMode,
+    trendMode: modes.trendMode,
     chaseRisk,
     stopLossPercent: plan.stopLossPercent,
     maxStopLossPercent: plan.maxStopLossPercent,
@@ -748,8 +824,8 @@ function scoreAdvancedAnalysisV2(klines15m, basic) {
   };
 }
 
-function scoreAdvancedAnalysis(klines15m, basic) {
-  return scoreAdvancedAnalysisV2(klines15m, basic);
+function scoreAdvancedAnalysis(klines15m, basic, options = {}) {
+  return scoreAdvancedAnalysisV2(klines15m, basic, options);
 }
 function signalKey(analysis) {
   return analysis.symbol;
@@ -813,7 +889,7 @@ function isValidBacktestSignal(analysis) {
 
 function hasValidTradePlan(analysis) {
   return ["long", "short"].includes(analysis.direction)
-    && ["pullback", "breakout"].includes(analysis.setupType)
+    && ["pullback", "breakout", "earlyBreakout"].includes(analysis.setupType)
     && [analysis.entryZone, analysis.stop, analysis.tp1, analysis.tp2].every((value) => Number.isFinite(Number(value)));
 }
 
@@ -840,6 +916,73 @@ async function readSignalRecord(env, id) {
 async function writeSignalRecord(env, record) {
   if (!env.SIGNAL_KV || !record?.id) return;
   await env.SIGNAL_KV.put(`signal:${record.id}`, JSON.stringify(record));
+}
+
+function signalSnapshotId(analysis, createdAt = Date.now()) {
+  return `${createdAt}:${analysis.symbol}:${analysis.setupType || "none"}:${analysis.signalLevel || "D"}`;
+}
+
+function buildSignalSnapshot(analysis, createdAt = Date.now()) {
+  return {
+    id: signalSnapshotId(analysis, createdAt),
+    createdAt,
+    symbol: analysis.symbol,
+    direction: analysis.direction || null,
+    provisionalDirection: Boolean(analysis.provisionalDirection),
+    setupType: analysis.setupType || "none",
+    signalLevel: analysis.signalLevel || "D",
+    totalScore: analysis.totalScore ?? null,
+    marketScore: analysis.marketScore ?? analysis.trendScore ?? null,
+    momentumScore: analysis.momentumScore ?? null,
+    rrScore: analysis.rrScore ?? null,
+    warnings: Array.isArray(analysis.warnings) ? analysis.warnings : [],
+    hardBlockReasons: Array.isArray(analysis.hardBlockReasons) ? analysis.hardBlockReasons : [],
+    volumeRatio: analysis.volumeRatio ?? null,
+    rsi: analysis.rsi ?? null,
+    macd: analysis.macd ?? null,
+    ma200Distance: analysis.ma200Distance ?? null,
+    price: analysis.price ?? null,
+    entry: Number(analysis.entryZone),
+    stop: analysis.stop ?? null,
+    tp1: analysis.tp1 ?? null,
+    tp2: analysis.tp2 ?? null,
+    tp3: analysis.tp3 ?? null
+  };
+}
+
+async function readSignalSnapshotIndex(env) {
+  if (!env.SIGNAL_KV) return [];
+  const index = await env.SIGNAL_KV.get(SIGNAL_SNAPSHOT_INDEX_KEY, { type: "json" }).catch(() => null);
+  return Array.isArray(index) ? index : [];
+}
+
+async function writeSignalSnapshotIndex(env, index) {
+  if (!env.SIGNAL_KV) return;
+  await env.SIGNAL_KV.put(SIGNAL_SNAPSHOT_INDEX_KEY, JSON.stringify(index.slice(0, SIGNAL_SNAPSHOT_LIMIT)));
+}
+
+async function readSignalSnapshot(env, id) {
+  if (!env.SIGNAL_KV || !id) return null;
+  return await env.SIGNAL_KV.get(`signal:snapshot:${id}`, { type: "json" }).catch(() => null);
+}
+
+async function recordSignalSnapshot(env, analysis) {
+  if (!env.SIGNAL_KV || !analysis || analysis.error) return null;
+  const now = Date.now();
+  const snapshot = buildSignalSnapshot(analysis, now);
+  const cutoff = now - SIGNAL_SNAPSHOT_RETENTION_MS;
+  const index = await readSignalSnapshotIndex(env);
+  const kept = [];
+  for (const id of [snapshot.id, ...index.filter((item) => item !== snapshot.id)]) {
+    const createdAt = Number(String(id).split(":")[0]);
+    if (Number.isFinite(createdAt) && createdAt >= cutoff) kept.push(id);
+    if (kept.length >= SIGNAL_SNAPSHOT_LIMIT) break;
+  }
+  await Promise.all([
+    env.SIGNAL_KV.put(`signal:snapshot:${snapshot.id}`, JSON.stringify(snapshot), { expirationTtl: Math.ceil(SIGNAL_SNAPSHOT_RETENTION_MS / 1000) }),
+    writeSignalSnapshotIndex(env, kept)
+  ]);
+  return snapshot;
 }
 
 async function signalRecordsByIds(env, ids) {
@@ -872,7 +1015,11 @@ async function rebuildCompleteSignalIndex(env) {
     });
     const pageIds = (page.keys || [])
       .map((item) => item.name)
-      .filter((name) => name !== SIGNAL_INDEX_KEY && name !== SIGNAL_INDEX_VERSION_KEY && name !== SIGNAL_STATS_KEY)
+      .filter((name) => name !== SIGNAL_INDEX_KEY
+        && name !== SIGNAL_INDEX_VERSION_KEY
+        && name !== SIGNAL_STATS_KEY
+        && name !== SIGNAL_SNAPSHOT_INDEX_KEY
+        && !name.startsWith("signal:snapshot:"))
       .map((name) => name.slice("signal:".length))
       .filter(Boolean);
     ids.push(...pageIds);
@@ -938,6 +1085,7 @@ function buildSignalRecord(analysis) {
     trackingPolicy: "next_bar",
     symbol: analysis.symbol,
     direction: analysis.direction,
+    provisionalDirection: Boolean(analysis.provisionalDirection),
     signalLevel: analysis.signalLevel,
     initialSignalLevel: analysis.signalLevel,
     currentSignalLevel: analysis.signalLevel,
@@ -953,10 +1101,17 @@ function buildSignalRecord(analysis) {
     stop: analysis.stop,
     tp1: analysis.tp1,
     tp2: analysis.tp2,
+    tp3: analysis.tp3,
     rrToTp1: analysis.rrToTp1,
     rrToTp2: analysis.rrToTp2,
+    rrToTp3: analysis.rrToTp3,
     stopLossPercent: analysis.stopLossPercent,
     maxStopLossPercent: analysis.maxStopLossPercent,
+    tp1Hit: false,
+    tp2Hit: false,
+    tp3Hit: false,
+    maxReachedR: 0,
+    finalR: null,
     status: "OPEN",
     outcome: null,
     resolvedAt: null,
@@ -965,30 +1120,89 @@ function buildSignalRecord(analysis) {
   };
 }
 
+function targetHit(record, bar, targetPrice) {
+  if (!Number.isFinite(Number(targetPrice))) return false;
+  return record.direction === "long" ? bar.high >= Number(targetPrice) : bar.low <= Number(targetPrice);
+}
+
+function recordRisk(record) {
+  const entry = Number(record.entry);
+  const stop = Number(record.stop);
+  const risk = Math.abs(entry - stop);
+  return Number.isFinite(risk) && risk > 0 ? risk : null;
+}
+
+function favorableR(record, bar) {
+  const risk = recordRisk(record);
+  const entry = Number(record.entry);
+  if (!Number.isFinite(risk) || !Number.isFinite(entry)) return null;
+  const favorablePrice = record.direction === "long" ? Number(bar.high) : Number(bar.low);
+  if (!Number.isFinite(favorablePrice)) return null;
+  return record.direction === "long" ? (favorablePrice - entry) / risk : (entry - favorablePrice) / risk;
+}
+
+function closeR(record, price) {
+  const risk = recordRisk(record);
+  const entry = Number(record.entry);
+  const exitPrice = Number(price);
+  if (!Number.isFinite(risk) || !Number.isFinite(entry) || !Number.isFinite(exitPrice)) return null;
+  return record.direction === "long" ? (exitPrice - entry) / risk : (entry - exitPrice) / risk;
+}
+
+function outcomeR(record, outcome, fallbackPrice = null) {
+  if (outcome === "SL_HIT") return -1;
+  if (outcome === "TP1_HIT") return Number(record.rrToTp1) || 1.5;
+  if (outcome === "TP2_HIT") return Number(record.rrToTp2) || 2.0;
+  if (outcome === "TP3_HIT") return Number(record.rrToTp3) || CONFIG.tp3R;
+  if (outcome === "EXPIRED") return Number.isFinite(Number(fallbackPrice)) ? closeR(record, fallbackPrice) : 0;
+  return Number.isFinite(Number(record.finalR)) ? Number(record.finalR) : null;
+}
+
 function resolveSignalRecord(record, klines15m) {
   if (!record || (record.status !== "OPEN" && record.result !== "OPEN")) return record;
   const createdAtBarTime = Number(record.createdAtBarTime);
   const bars = record.trackingPolicy === "next_bar" && Number.isFinite(createdAtBarTime)
     ? klines15m.filter((item) => Number(item.time) > createdAtBarTime)
     : klines15m.filter((item) => Number(item.time) >= Number(record.createdAt));
+  let state = {
+    ...record,
+    tp1Hit: Boolean(record.tp1Hit || record.outcome === "TP1_HIT" || record.outcome === "TP2_HIT" || record.outcome === "TP3_HIT"),
+    tp2Hit: Boolean(record.tp2Hit || record.outcome === "TP2_HIT" || record.outcome === "TP3_HIT"),
+    tp3Hit: Boolean(record.tp3Hit || record.outcome === "TP3_HIT"),
+    maxReachedR: Number.isFinite(Number(record.maxReachedR)) ? Number(record.maxReachedR) : 0
+  };
+  const finish = (outcome, bar, barsHeld) => ({
+    ...state,
+    status: "CLOSED",
+    outcome,
+    resolvedAt: bar?.time ?? Date.now(),
+    barsHeld,
+    finalR: outcomeR(state, outcome, bar?.close)
+  });
   for (let index = 0; index < bars.length; index += 1) {
     const bar = bars[index];
     const barsHeld = index + 1;
     const hitStop = record.direction === "long" ? bar.low <= record.stop : bar.high >= record.stop;
-    const hitTp2 = record.direction === "long" ? bar.high >= record.tp2 : bar.low <= record.tp2;
-    const hitTp1 = record.direction === "long" ? bar.high >= record.tp1 : bar.low <= record.tp1;
-    if (hitStop && (hitTp1 || hitTp2)) {
-      return { ...record, status: "CLOSED", outcome: "AMBIGUOUS", resolvedAt: bar.time, barsHeld };
-    }
-    if (hitTp2) return { ...record, status: "CLOSED", outcome: "TP2_HIT", resolvedAt: bar.time, barsHeld };
-    if (hitTp1) return { ...record, status: "CLOSED", outcome: "TP1_HIT", resolvedAt: bar.time, barsHeld };
-    if (hitStop) return { ...record, status: "CLOSED", outcome: "SL_HIT", resolvedAt: bar.time, barsHeld };
+    if (hitStop) return finish("SL_HIT", bar, barsHeld);
+
+    state = {
+      ...state,
+      barsHeld,
+      tp1Hit: state.tp1Hit || targetHit(record, bar, record.tp1),
+      tp2Hit: state.tp2Hit || targetHit(record, bar, record.tp2),
+      tp3Hit: state.tp3Hit || targetHit(record, bar, record.tp3)
+    };
+    const reachedR = favorableR(record, bar);
+    if (Number.isFinite(reachedR)) state.maxReachedR = Math.max(Number(state.maxReachedR) || 0, reachedR);
+    if (state.tp3Hit) return finish("TP3_HIT", bar, barsHeld);
   }
   if (bars.length >= SIGNAL_EXPIRY_BARS) {
     const lastBar = bars.at(-1);
-    return { ...record, status: "CLOSED", outcome: "EXPIRED", resolvedAt: lastBar?.time ?? Date.now(), barsHeld: bars.length };
+    if (state.tp2Hit) return finish("TP2_HIT", lastBar, bars.length);
+    if (state.tp1Hit) return finish("TP1_HIT", lastBar, bars.length);
+    return finish("EXPIRED", lastBar, bars.length);
   }
-  return { ...record, barsHeld: bars.length };
+  return { ...state, barsHeld: bars.length };
 }
 
 async function updateOpenSignalRecords(env, symbol, klines15m) {
@@ -1044,46 +1258,64 @@ function emptyBucketStats() {
 
 function addBucketResult(bucket, record) {
   bucket.total += 1;
-  if (record.outcome === "TP1_HIT" || record.outcome === "TP2_HIT") bucket.wins += 1;
+  if (record.outcome === "TP1_HIT" || record.outcome === "TP2_HIT" || record.outcome === "TP3_HIT") bucket.wins += 1;
   if (record.outcome === "SL_HIT") bucket.losses += 1;
   const denominator = bucket.wins + bucket.losses;
   bucket.winRate = denominator ? bucket.wins / denominator * 100 : null;
 }
 
+function recordTargetReached(record, level) {
+  const outcome = record.outcome;
+  if (level === 1) return Boolean(record.tp1Hit || outcome === "TP1_HIT" || outcome === "TP2_HIT" || outcome === "TP3_HIT");
+  if (level === 2) return Boolean(record.tp2Hit || outcome === "TP2_HIT" || outcome === "TP3_HIT");
+  if (level === 3) return Boolean(record.tp3Hit || outcome === "TP3_HIT");
+  return false;
+}
+
+function recordFinalR(record) {
+  if (Number.isFinite(Number(record.finalR))) return Number(record.finalR);
+  return outcomeR(record, record.outcome);
+}
+
 function computeSignalStats(records) {
+  const closedRecords = records.filter((item) => item.status !== "OPEN");
   const stats = {
     totalSignals: records.length,
-    closedSignals: records.filter((item) => item.status !== "OPEN").length,
+    closedSignals: closedRecords.length,
     openSignals: records.filter((item) => item.status === "OPEN").length,
-    tp1Hits: records.filter((item) => item.outcome === "TP1_HIT").length,
-    tp2Hits: records.filter((item) => item.outcome === "TP2_HIT").length,
+    tp1Hits: records.filter((item) => recordTargetReached(item, 1)).length,
+    tp2Hits: records.filter((item) => recordTargetReached(item, 2)).length,
+    tp3Hits: records.filter((item) => recordTargetReached(item, 3)).length,
     slHits: records.filter((item) => item.outcome === "SL_HIT").length,
     expired: records.filter((item) => item.outcome === "EXPIRED").length,
     ambiguous: records.filter((item) => item.outcome === "AMBIGUOUS").length,
+    tp3HitRate: null,
+    averageMaxR: null,
     totalPnlR: 0,
     overallWinRate: null,
     overallWinRateIncludingExpired: null,
     byLevel: { "S+": emptyBucketStats(), S: emptyBucketStats(), A: emptyBucketStats(), B: emptyBucketStats(), C: emptyBucketStats() },
     byDirection: { long: emptyBucketStats(), short: emptyBucketStats() },
-    bySetupType: { pullback: emptyBucketStats(), breakout: emptyBucketStats() },
+    bySetupType: { pullback: emptyBucketStats(), breakout: emptyBucketStats(), earlyBreakout: emptyBucketStats() },
     averageBarsHeld: null,
     maxConsecutiveSL: 0
   };
 
-  const resolved = records.filter((item) => item.status !== "OPEN");
-  const wins = stats.tp1Hits + stats.tp2Hits;
+  const resolved = closedRecords;
+  const wins = resolved.filter((item) => item.outcome === "TP1_HIT" || item.outcome === "TP2_HIT" || item.outcome === "TP3_HIT").length;
   const losses = stats.slHits;
   const expired = stats.expired;
   stats.totalPnlR = records.reduce((total, record) => {
-    if (record.outcome === "TP2_HIT") return total + (Number(record.rrToTp2) || 2.0);
-    if (record.outcome === "TP1_HIT") return total + (Number(record.rrToTp1) || 1.5);
-    if (record.outcome === "SL_HIT") return total - 1;
-    return total;
+    const finalR = recordFinalR(record);
+    return Number.isFinite(finalR) ? total + finalR : total;
   }, 0);
+  stats.tp3HitRate = stats.closedSignals ? stats.tp3Hits / stats.closedSignals * 100 : null;
   stats.overallWinRate = wins + losses ? wins / (wins + losses) * 100 : null;
   stats.overallWinRateIncludingExpired = wins + losses + expired ? wins / (wins + losses + expired) * 100 : null;
   const barsHeld = resolved.map((item) => Number(item.barsHeld)).filter(Number.isFinite);
   stats.averageBarsHeld = barsHeld.length ? average(barsHeld) : null;
+  const maxReachedValues = records.map((item) => Number(item.maxReachedR)).filter(Number.isFinite);
+  stats.averageMaxR = maxReachedValues.length ? average(maxReachedValues) : null;
 
   for (const record of records) {
     const initialLevel = record.initialSignalLevel || record.signalLevel || record.currentSignalLevel;
@@ -1097,7 +1329,7 @@ function computeSignalStats(records) {
     if (record.outcome === "SL_HIT") {
       streak += 1;
       stats.maxConsecutiveSL = Math.max(stats.maxConsecutiveSL, streak);
-    } else if (record.outcome === "TP1_HIT" || record.outcome === "TP2_HIT") {
+    } else if (record.outcome === "TP1_HIT" || record.outcome === "TP2_HIT" || record.outcome === "TP3_HIT") {
       streak = 0;
     }
   }
@@ -1159,6 +1391,32 @@ async function handleSignalStats(env, requestUrl) {
   });
 }
 
+async function handleSignalSnapshots(env, requestUrl) {
+  if (!env.SIGNAL_KV) return json({ snapshots: [] });
+  const symbol = String(requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
+  const setupType = String(requestUrl.searchParams.get("setupType") || "").trim();
+  const signalLevel = String(requestUrl.searchParams.get("signalLevel") || "").trim().toUpperCase();
+  const hardBlockReason = String(requestUrl.searchParams.get("hardBlockReason") || "").trim().toLowerCase();
+  const from = Number(requestUrl.searchParams.get("from") || 0);
+  const to = Number(requestUrl.searchParams.get("to") || Number.MAX_SAFE_INTEGER);
+  const limit = Math.min(Math.max(Number(requestUrl.searchParams.get("limit") || 100), 1), 500);
+  const index = await readSignalSnapshotIndex(env);
+  const snapshots = [];
+  for (const id of index) {
+    const snapshot = await readSignalSnapshot(env, id);
+    if (!snapshot) continue;
+    if (symbol && snapshot.symbol !== symbol) continue;
+    if (setupType && snapshot.setupType !== setupType) continue;
+    if (signalLevel && snapshot.signalLevel !== signalLevel) continue;
+    if (Number.isFinite(from) && Number(snapshot.createdAt) < from) continue;
+    if (Number.isFinite(to) && Number(snapshot.createdAt) > to) continue;
+    if (hardBlockReason && !(snapshot.hardBlockReasons || []).some((item) => String(item).toLowerCase().includes(hardBlockReason))) continue;
+    snapshots.push(snapshot);
+    if (snapshots.length >= limit) break;
+  }
+  return json({ snapshots });
+}
+
 async function handleClearSignals(env, requestUrl, method) {
   if (method !== "GET") {
     const error = new Error("Method not allowed");
@@ -1195,6 +1453,7 @@ async function handleClearSignals(env, requestUrl, method) {
 }
 
 function setupTypeLabel(type) {
+  if (type === "earlyBreakout") return "早段突破";
   if (type === "breakout") return "突破單";
   if (type === "pullback") return "回踩單";
   return "未確認";
@@ -1220,6 +1479,7 @@ function translateWarningText(text) {
     .replace("RSI oversold", "RSI 過度超賣")
     .replace("ATR extremely high", "ATR 極端高波動")
     .replace("stop too wide", "止損距離過大")
+    .replace("early direction, not fully confirmed", "早段方向，尚未完全確認")
     .replace("score below 60", "分數低於 60");
 }
 
@@ -1243,20 +1503,27 @@ function telegramText(analysis) {
   const typeText = setupTypeLabel(analysis.setupType);
   const rrTp1 = Number.isFinite(analysis.rrDisplay) ? number(analysis.rrDisplay, 1) + "R" : "-";
   const rrTp2 = Number.isFinite(analysis.rrStretch) ? number(analysis.rrStretch, 1) + "R" : "-";
+  const rrTp3 = Number.isFinite(analysis.rrToTp3) ? number(analysis.rrToTp3, 1) + "R" : "-";
+  const directionNote = analysis.provisionalDirection ? "\n方向狀態：早段方向，尚未完全確認" : "";
   const scoreText = `等級：${level}\n總分：${analysis.totalScore ?? "-"} / 100\n市場：${analysis.marketScore ?? "-"} / 40\n動能：${analysis.momentumScore ?? "-"} / 30\n風報：${analysis.rrScore ?? "-"} / 30`;
-  const priceBlock = `現價：${priceNumber(analysis.price)}\n進場：${analysis.entryZone}\n止損：${Number.isFinite(analysis.stop) ? priceNumber(analysis.stop) : "-"}\n止盈1：${Number.isFinite(analysis.tp1) ? priceNumber(analysis.tp1) : "-"}\n止盈2：${Number.isFinite(analysis.tp2) ? priceNumber(analysis.tp2) : "-"}`;
+  const priceBlock = `現價：${priceNumber(analysis.price)}\n進場：${analysis.entryZone}\n止損：${Number.isFinite(analysis.stop) ? priceNumber(analysis.stop) : "-"}\n止盈1：${Number.isFinite(analysis.tp1) ? priceNumber(analysis.tp1) : "-"}\n止盈2：${Number.isFinite(analysis.tp2) ? priceNumber(analysis.tp2) : "-"}\n止盈3：${Number.isFinite(analysis.tp3) ? priceNumber(analysis.tp3) : "-"}`;
 
   if (level === "B") {
+    const earlyBreakoutNote = analysis.setupType === "earlyBreakout"
+      ? "\n早段多頭，需控倉，不追高。"
+      : "";
     return `${signalTitleIcon(level)} B級${directionText}｜${analysis.symbol}
 
 型態：${typeText}
-狀態：觀察，不建議追價
+${directionNote}
+狀態：觀察，不建議追價${earlyBreakoutNote}
 
 ${priceBlock}
 
 風報：
 TP1：${rrTp1}
 TP2：${rrTp2}
+TP3：${rrTp3}
 
 分數：
 ${scoreText}
@@ -1273,11 +1540,13 @@ ${warningReasonText(analysis.warnings)}`;
   return `${signalTitleIcon(level)} ${level}級${directionText}｜${analysis.symbol}
 
 型態：${typeText}
+${directionNote}
 ${priceBlock}
 
 風報：
 TP1：${rrTp1}
 TP2：${rrTp2}
+TP3：${rrTp3}
 
 分數：
 ${scoreText}
@@ -1299,7 +1568,15 @@ async function sendTelegram(text, env) {
   if (!response.ok || payload?.ok === false) throw new Error(payload?.description || `Telegram HTTP ${response.status}`);
 }
 
-async function scanSymbol(symbol) {
+function strategyOptionsFromEnv(env = {}) {
+  return strategyModes({
+    entryMode: env.ENTRY_MODE,
+    trendMode: env.TREND_MODE,
+    tp3R: env.TP3_R
+  });
+}
+
+async function scanSymbol(symbol, env = {}) {
   const [klines4hResult, klines15mResult, priceResult] = await Promise.allSettled([
     fetchKlinesValue(symbol, "4h", 300),
     fetchKlinesValue(symbol, "15m", 300),
@@ -1317,7 +1594,7 @@ async function scanSymbol(symbol) {
   const klines15m = klines15mResult.value;
   const price = priceResult.value;
   const basic = basicFromKlines(symbol, price, klines4h, klines15m);
-  const analysis = scoreAdvancedAnalysisV2(klines15m, basic);
+  const analysis = scoreAdvancedAnalysisV2(klines15m, basic, strategyOptionsFromEnv(env));
   if (!analysis) {
     console.log(`${symbol} fetch failed`);
     return { symbol, signalLevel: "ERROR", error: true };
@@ -1330,8 +1607,9 @@ async function runScheduledScan(env) {
   console.log("[scheduled] start");
   for (const symbol of SCAN_SYMBOLS) {
     try {
-      const analysis = await scanSymbol(symbol);
+      const analysis = await scanSymbol(symbol, env);
       if (analysis.error) continue;
+      await recordSignalSnapshot(env, analysis);
       const resolvedSignals = await updateOpenSignalRecords(env, symbol, analysis.latestKlines15m || []);
       if (resolvedSignals.length) await rebuildSignalStats(env);
       await recordSignalIfEligible(env, analysis);
@@ -1366,6 +1644,7 @@ export default {
       if (requestUrl.pathname === "/price") return await handlePrice(requestUrl);
       if (requestUrl.pathname === "/klines") return await handleKlines(requestUrl);
       if (requestUrl.pathname === "/signals/stats") return await handleSignalStats(env, requestUrl);
+      if (requestUrl.pathname === "/signals/snapshots") return await handleSignalSnapshots(env, requestUrl);
       if (requestUrl.pathname === "/admin/clear-signals") return await handleClearSignals(env, requestUrl, request.method);
 
       return json({
@@ -1374,6 +1653,7 @@ export default {
           "/price?symbol=BTC-USDT",
           "/klines?symbol=BTC-USDT&interval=15m&limit=200",
           "/signals/stats?page=1&limit=50",
+          "/signals/snapshots?symbol=SOL-USDT&limit=100",
           "/admin/clear-signals?confirm=YES"
         ]
       }, 404);

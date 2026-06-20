@@ -13,6 +13,9 @@ globalThis.signalIndexTestHooks = {
   dynamicTradePlanMetrics,
   handleClearSignals,
   handleSignalStats,
+  recordSignalSnapshot,
+  resolveSignalRecord,
+  scoreAdvancedAnalysisV2,
   recordSignalIfEligible
 };
 `);
@@ -34,6 +37,9 @@ const {
   dynamicTradePlanMetrics,
   handleClearSignals,
   handleSignalStats,
+  recordSignalSnapshot,
+  resolveSignalRecord,
+  scoreAdvancedAnalysisV2,
   recordSignalIfEligible
 } = context.signalIndexTestHooks;
 
@@ -51,7 +57,8 @@ function signalRecord(index) {
     outcome: "TP1_HIT",
     barsHeld: 1,
     rrToTp1: 1.5,
-    rrToTp2: 2.0
+    rrToTp2: 2.0,
+    rrToTp3: 2.5
   };
 }
 
@@ -155,6 +162,15 @@ function openRecord() {
     stop: 98,
     tp1: 103,
     tp2: 104,
+    tp3: 105,
+    rrToTp1: 1.5,
+    rrToTp2: 2.0,
+    rrToTp3: 2.5,
+    tp1Hit: false,
+    tp2Hit: false,
+    tp3Hit: false,
+    maxReachedR: 0,
+    finalR: null,
     warnings: ["initial warning"]
   };
   return record;
@@ -176,14 +192,81 @@ function upgradeAnalysis() {
     stop: 107,
     tp1: 114.5,
     tp2: 116,
+    tp3: 117.5,
     rrToTp1: 1.5,
     rrToTp2: 2.0,
+    rrToTp3: 2.5,
     rrDisplay: 1.5,
     rrStretch: 2.0,
     stopLossPercent: 2.73,
     maxStopLossPercent: 3,
     warnings: ["upgrade warning"],
     latestKlines15m: [{ time: 1_750_000_001_999 }]
+  };
+}
+
+function earlyBreakoutKlines() {
+  const closes = [];
+  let close = 80;
+  for (let index = 0; index < 205; index += 1) {
+    close += 0.12;
+    closes.push(close);
+  }
+  const changes = [1, -1, 1, 1, -1, 1, 1, 1, -1, 1, 1, -1, 1, 1, 1];
+  for (const change of changes) {
+    close += change * 0.45;
+    closes.push(close);
+  }
+  closes.push(close + 0.2);
+  return closes.map((value, index) => ({
+    time: index,
+    open: value - 0.1,
+    high: value + 0.3,
+    low: value - 0.3,
+    close: value,
+    volume: 100
+  }));
+}
+
+function earlyBreakoutBasic() {
+  return {
+    symbol: "SOL-USDT",
+    price: 110,
+    ma4h: 111,
+    ma4h200: 110.2,
+    ma15m30: 108,
+    ma15m30Prev: 107,
+    ma5: 109,
+    ma10: 104,
+    prevClose: 107,
+    prevMa10: 105,
+    recentHigh: 120,
+    recentLow: 108,
+    previousRecentHigh: 130,
+    previousRecentLow: 100,
+    notNearHigh: true,
+    notNearLow: true
+  };
+}
+
+function provisionalEarlyBreakoutBasic() {
+  return {
+    symbol: "SOL-USDT",
+    price: 109.8,
+    ma4h: 110,
+    ma4h200: 110,
+    ma15m30: 108.8,
+    ma15m30Prev: 108.8,
+    ma5: 109.5,
+    ma10: 107,
+    prevClose: 108.5,
+    prevMa10: 107.2,
+    recentHigh: 120,
+    recentLow: 108.6,
+    previousRecentHigh: 130,
+    previousRecentLow: 100,
+    notNearHigh: true,
+    notNearLow: true
   };
 }
 
@@ -223,6 +306,35 @@ test("old 200-record index and stats migrate to the complete 500-record totals",
   assert.equal(kv.values.get("signal:index:version"), "2");
   assert.equal(kv.calls.list.length, 1);
   assert.equal(kv.calls.put.filter((key) => key === "signal:stats").length, 1);
+});
+
+test("complete index rebuild ignores signal snapshots", async () => {
+  const kv = createKv({
+    records: records.slice(0, 3),
+    indexIds: [],
+    version: "1",
+    stats: statsCache(0),
+    extraEntries: [
+      ["signal:snapshots:index", JSON.stringify(["1750000000500:SOL-USDT:D:none"])],
+      ["signal:snapshot:1750000000500:SOL-USDT:D:none", JSON.stringify({
+        id: "1750000000500:SOL-USDT:D:none",
+        symbol: "SOL-USDT",
+        signalLevel: "D",
+        setupType: "none"
+      })]
+    ]
+  });
+  const response = await handleSignalStats({ SIGNAL_KV: kv }, new URL("https://worker.example/signals/stats?page=1&limit=20"));
+  const payload = await response.json();
+  const savedIndex = JSON.parse(kv.values.get("signal:index"));
+  const savedStats = JSON.parse(kv.values.get("signal:stats"));
+
+  assert.equal(response.status, 200);
+  assert.equal(payload.pagination.total, 3);
+  assert.equal(payload.stats.totalSignals, 3);
+  assert.equal(savedIndex.length, 3);
+  assert.equal(savedIndex.some((id) => id.startsWith("snapshot:")), false);
+  assert.equal(savedStats.totalSignals, 3);
 });
 
 test("missing stats cache is built automatically and returned normally", async () => {
@@ -268,6 +380,7 @@ test("OPEN record upgrade keeps initial level and original trade plan unchanged"
   assert.equal(saved.stop, original.stop);
   assert.equal(saved.tp1, original.tp1);
   assert.equal(saved.tp2, original.tp2);
+  assert.equal(saved.tp3, original.tp3);
   assert.equal(saved.createdAtBarTime, original.createdAtBarTime);
   assert.deepEqual(saved.warnings, ["initial warning", "upgrade warning"]);
 });
@@ -309,12 +422,157 @@ test("TP2 is calculated at 2.0R while TP1 remains 1.5R", () => {
 
   assert.equal(longPlan.rrToTp1, 1.5);
   assert.equal(longPlan.rrToTp2, 2.0);
+  assert.equal(longPlan.rrToTp3, 2.5);
   assertNear((longPlan.tp1 - longPlan.entry) / longPlan.risk, 1.5);
   assertNear((longPlan.tp2 - longPlan.entry) / longPlan.risk, 2.0);
+  assertNear((longPlan.tp3 - longPlan.entry) / longPlan.risk, 2.5);
   assert.equal(shortPlan.rrToTp1, 1.5);
   assert.equal(shortPlan.rrToTp2, 2.0);
+  assert.equal(shortPlan.rrToTp3, 2.5);
   assertNear((shortPlan.entry - shortPlan.tp1) / shortPlan.risk, 1.5);
   assertNear((shortPlan.entry - shortPlan.tp2) / shortPlan.risk, 2.0);
+  assertNear((shortPlan.entry - shortPlan.tp3) / shortPlan.risk, 2.5);
+});
+
+test("TP3 R multiple is configurable", () => {
+  const plan = dynamicTradePlanMetrics("long", {
+    symbol: "BTC-USDT",
+    price: 100,
+    recentLow: 99,
+    recentHigh: 105,
+    ma15m30: 99,
+    atr: 1,
+    tp3R: 3
+  });
+
+  assert.equal(plan.rrToTp1, 1.5);
+  assert.equal(plan.rrToTp2, 2.0);
+  assert.equal(plan.rrToTp3, 3);
+  assertNear((plan.tp3 - plan.entry) / plan.risk, 3);
+});
+
+test("backtest keeps tracking after TP1 and TP2 and closes as TP3_HIT", () => {
+  const record = openRecord();
+  const result = resolveSignalRecord(record, [
+    { time: record.createdAtBarTime, high: 100.5, low: 99.5, close: 100 },
+    { time: record.createdAtBarTime + 1, high: 103.2, low: 100.5, close: 103 },
+    { time: record.createdAtBarTime + 2, high: 104.2, low: 102.5, close: 104 },
+    { time: record.createdAtBarTime + 3, high: 105.1, low: 103.5, close: 105 }
+  ]);
+
+  assert.equal(result.status, "CLOSED");
+  assert.equal(result.outcome, "TP3_HIT");
+  assert.equal(result.tp1Hit, true);
+  assert.equal(result.tp2Hit, true);
+  assert.equal(result.tp3Hit, true);
+  assertNear(result.maxReachedR, 2.55);
+  assert.equal(result.finalR, 2.5);
+});
+
+test("backtest counts stop first and does not count same-bar TP", () => {
+  const record = openRecord();
+  const result = resolveSignalRecord(record, [
+    { time: record.createdAtBarTime + 1, high: 106, low: 97.9, close: 101 }
+  ]);
+
+  assert.equal(result.status, "CLOSED");
+  assert.equal(result.outcome, "SL_HIT");
+  assert.equal(result.tp1Hit, false);
+  assert.equal(result.tp2Hit, false);
+  assert.equal(result.tp3Hit, false);
+  assert.equal(result.maxReachedR, 0);
+  assert.equal(result.finalR, -1);
+});
+
+test("stats include TP3 reached rate, average max R, and final R total", () => {
+  const tp3 = {
+    ...signalRecord(800),
+    status: "CLOSED",
+    outcome: "TP3_HIT",
+    tp1Hit: true,
+    tp2Hit: true,
+    tp3Hit: true,
+    maxReachedR: 2.6,
+    finalR: 2.5
+  };
+  const stopped = {
+    ...signalRecord(801),
+    status: "CLOSED",
+    outcome: "SL_HIT",
+    tp1Hit: false,
+    tp2Hit: false,
+    tp3Hit: false,
+    maxReachedR: 0.4,
+    finalR: -1
+  };
+  const stats = computeSignalStats([tp3, stopped]);
+
+  assert.equal(stats.tp1Hits, 1);
+  assert.equal(stats.tp2Hits, 1);
+  assert.equal(stats.tp3Hits, 1);
+  assert.equal(stats.tp3HitRate, 50);
+  assertNear(stats.averageMaxR, 1.5);
+  assertNear(stats.totalPnlR, 1.5);
+});
+
+test("SOL earlyBreakout produces at least a B long in aggressive mode", () => {
+  const analysis = scoreAdvancedAnalysisV2(earlyBreakoutKlines(), earlyBreakoutBasic(), {
+    entryMode: "aggressive",
+    trendMode: "trend"
+  });
+
+  assert.equal(analysis.direction, "long");
+  assert.equal(analysis.setupType, "earlyBreakout");
+  assert.ok(["B", "A", "S", "S+"].includes(analysis.signalLevel));
+  assert.equal(analysis.rsi >= 70 && analysis.rsi <= 78, true);
+  assert.equal(analysis.volumeRatio >= 0.8, true);
+  assert.deepEqual(Array.from(analysis.hardBlockReasons), []);
+});
+
+test("conservative mode does not enable earlyBreakout", () => {
+  const analysis = scoreAdvancedAnalysisV2(earlyBreakoutKlines(), earlyBreakoutBasic(), {
+    entryMode: "conservative",
+    trendMode: "trend"
+  });
+
+  assert.notEqual(analysis.setupType, "earlyBreakout");
+});
+
+test("aggressive mode enables earlyBreakout", () => {
+  const analysis = scoreAdvancedAnalysisV2(earlyBreakoutKlines(), earlyBreakoutBasic(), {
+    entryMode: "aggressive",
+    trendMode: "trend"
+  });
+
+  assert.equal(analysis.setupType, "earlyBreakout");
+});
+
+test("counter mode allows provisional long earlyBreakout when strict direction is unclear", () => {
+  const analysis = scoreAdvancedAnalysisV2(earlyBreakoutKlines(), provisionalEarlyBreakoutBasic(), {
+    entryMode: "aggressive",
+    trendMode: "counter"
+  });
+
+  assert.equal(analysis.originalDirection, null);
+  assert.equal(analysis.direction, "long");
+  assert.equal(analysis.provisionalDirection, true);
+  assert.equal(analysis.setupType, "earlyBreakout");
+  assert.equal(analysis.signalLevel, "B");
+  assert.equal(analysis.warnings.includes("早段方向，尚未完全確認"), true);
+});
+
+test("trend mode keeps strict direction and does not allow provisional earlyBreakout", () => {
+  const analysis = scoreAdvancedAnalysisV2(earlyBreakoutKlines(), provisionalEarlyBreakoutBasic(), {
+    entryMode: "aggressive",
+    trendMode: "trend"
+  });
+
+  assert.equal(analysis.originalDirection, null);
+  assert.equal(analysis.direction, null);
+  assert.equal(analysis.provisionalDirection, false);
+  assert.notEqual(analysis.setupType, "earlyBreakout");
+  assert.equal(analysis.signalLevel, "D");
+  assert.equal(analysis.hardBlockReasons.includes("direction unclear"), true);
 });
 
 test("expired records are counted in conservative win rate denominator", () => {
@@ -369,4 +627,37 @@ test("admin clear endpoint requires confirm=YES before deleting", async () => {
   assert.equal(kv.calls.list.length, 0);
   assert.equal(kv.calls.delete.length, 0);
   assert.equal([...kv.values.keys()].some((key) => key.startsWith("signal:")), true);
+});
+
+test("snapshot is recorded even when signalLevel is D", async () => {
+  const kv = createKv({ records: [] });
+  const snapshot = await recordSignalSnapshot({ SIGNAL_KV: kv }, {
+    symbol: "SOL-USDT",
+    direction: null,
+    setupType: "none",
+    signalLevel: "D",
+    totalScore: 20,
+    marketScore: 10,
+    momentumScore: 5,
+    rrScore: 0,
+    warnings: ["setup not confirmed"],
+    hardBlockReasons: ["direction unclear"],
+    volumeRatio: 0.4,
+    rsi: 50,
+    macd: { crossType: "golden" },
+    ma200Distance: -0.2,
+    price: 100,
+    entryZone: 100,
+    stop: 98,
+    tp1: 103,
+    tp2: 104,
+    tp3: 105
+  });
+  const index = JSON.parse(kv.values.get("signal:snapshots:index"));
+  const saved = JSON.parse(kv.values.get(`signal:snapshot:${snapshot.id}`));
+
+  assert.equal(snapshot.signalLevel, "D");
+  assert.equal(index.includes(snapshot.id), true);
+  assert.equal(saved.symbol, "SOL-USDT");
+  assert.equal(saved.signalLevel, "D");
 });
