@@ -254,7 +254,7 @@
       max-width: 1600px;
       margin: 8px auto 18px;
       display: grid;
-      grid-template-columns: 340px minmax(0, 1fr);
+      grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
       gap: 12px;
       align-items: start;
     }
@@ -268,61 +268,19 @@
       grid-column: 1;
     }
 
-    .chart-panel {
-      grid-column: 2;
-      align-self: start;
-      padding: 16px;
-      height: auto;
-      display: block;
-    }
-
     .signal-panel {
+      grid-column: 2;
       display: flex;
       flex-direction: column;
       gap: 16px;
       align-items: flex-start;
       height: auto;
       min-height: unset;
-      margin: 0 0 18px;
+      margin: 0;
     }
 
     .signal-panel > * {
       width: 100%;
-    }
-
-    .chart-panel h2 {
-      margin-bottom: 12px;
-    }
-
-    .kline-chart-shell {
-      position: relative;
-      height: 420px;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      background: var(--panel-strong);
-      overflow: hidden;
-    }
-
-    #btcKlineChart {
-      width: 100%;
-      height: 420px;
-    }
-
-    .chart-empty {
-      position: absolute;
-      inset: 0;
-      height: 420px;
-      display: grid;
-      place-items: center;
-      padding: 16px;
-      color: var(--muted);
-      text-align: center;
-      pointer-events: none;
-      background: rgba(11, 14, 17, .78);
-    }
-
-    .chart-empty.hide {
-      display: none !important;
     }
 
     .signal-head {
@@ -401,8 +359,16 @@
       margin-bottom: 12px;
     }
 
+    .decision-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
     .signal-card,
-    .analysis-card {
+    .analysis-card,
+    .decision-summary-card {
       border: 1px solid var(--line);
       border-radius: 16px;
       background: var(--panel-soft);
@@ -421,13 +387,15 @@
 
     .signal-card strong,
     .analysis-card strong,
+    .decision-summary-card strong,
     .condition-box strong {
       display: block;
       font-size: 18px;
       overflow-wrap: anywhere;
     }
 
-    .analysis-card span {
+    .analysis-card span,
+    .decision-summary-card span {
       display: block;
       color: var(--muted);
       font-size: 13px;
@@ -1083,20 +1051,6 @@
       display: none;
     }
 
-    @media (max-width: 1199px) {
-      body.layout-auto .kline-chart-shell,
-      body.layout-portrait .kline-chart-shell {
-        height: 420px;
-        min-height: 420px;
-      }
-
-      body.layout-auto #btcKlineChart,
-      body.layout-portrait #btcKlineChart {
-        height: 420px;
-        min-height: 420px;
-      }
-    }
-
     @media (max-width: 900px) {
       body.layout-desktop header {
         display: grid;
@@ -1157,32 +1111,6 @@
         flex-direction: column;
         gap: 12px;
         padding: 12px;
-      }
-
-      .chart-panel,
-      body.layout-auto .chart-panel,
-      body.layout-portrait .chart-panel {
-        order: 3;
-        grid-column: auto;
-        grid-row: auto;
-        padding: 12px;
-      }
-
-      .kline-chart-shell,
-      body.layout-auto .kline-chart-shell,
-      body.layout-portrait .kline-chart-shell {
-        height: 320px;
-        min-height: 320px;
-        max-height: 320px;
-      }
-
-      #btcKlineChart,
-      body.layout-auto #btcKlineChart,
-      body.layout-portrait #btcKlineChart,
-      .chart-empty {
-        height: 320px;
-        min-height: 320px;
-        max-height: 320px;
       }
 
       .signal-head,
@@ -1247,6 +1175,7 @@
       }
 
       .analysis-grid,
+      .decision-summary-grid,
       body.layout-auto .analysis-grid,
       body.layout-portrait .analysis-grid {
         order: 6;
@@ -1410,7 +1339,7 @@
       </div>
     </header>
 
-    <section class="dashboard" aria-label="市場數據與 K 線">
+    <section class="dashboard" aria-label="訊號決策儀表板">
       <form class="panel market-panel" id="marketForm">
         <h2>市場數據</h2>
         <div class="market-actions">
@@ -1521,16 +1450,7 @@
         </div>
       </form>
 
-      <section class="panel chart-panel" aria-label="K 線圖">
-        <h2 id="chartTitle">BTCUSDT.P 15m K 線圖</h2>
-        <div class="kline-chart-shell">
-          <div id="btcKlineChart"></div>
-          <div class="chart-empty" id="klineChartEmpty">請更新數據以顯示 15m K 線圖。</div>
-        </div>
-      </section>
-    </section>
-
-    <section class="panel signal-panel">
+      <section class="panel signal-panel">
       <div class="signal-head">
         <div>
           <h2>盤面判斷</h2>
@@ -1550,6 +1470,17 @@
           <strong id="autoUpdateCountdownMobile">下一次更新倒數：5 秒</strong>
         </div>
         <div class="market-status" id="marketUpdateStatusMobile">等待自動更新</div>
+      </div>
+
+      <div class="decision-summary-grid" aria-label="快速決策卡">
+        <div class="decision-summary-card"><span>進場價</span><strong id="quickEntry">-</strong></div>
+        <div class="decision-summary-card"><span>止損</span><strong id="quickStop">-</strong></div>
+        <div class="decision-summary-card"><span>TP1 / TP2 / TP3</span><strong id="quickTargets">-</strong></div>
+        <div class="decision-summary-card"><span>RR</span><strong id="quickRr">-</strong></div>
+        <div class="decision-summary-card"><span>訊號等級</span><strong id="quickSignalLevel">-</strong></div>
+        <div class="decision-summary-card"><span>主要原因</span><strong id="quickReason">-</strong></div>
+        <div class="decision-summary-card"><span>Telegram 通知</span><strong id="quickTelegram">-</strong></div>
+        <div class="decision-summary-card"><span>進場型態</span><strong id="quickSetupType">-</strong></div>
       </div>
 
       <div class="signal-grid">
@@ -1585,6 +1516,7 @@
           <div class="condition-list" id="shortConditions"></div>
         </div>
       </div>
+      </section>
     </section>
 
     <section class="panel signal-stats-panel" aria-label="訊號統計 / 回測追蹤">
@@ -1783,7 +1715,6 @@
       </div>
     </section>
   </main>
-  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
   <script>
     const supportedSymbols = ["BTC-USDT", "ETH-USDT", "SOL-USDT", "XRP-USDT", "DOGE-USDT"];
     const symbolStorageKey = "btc-dashboard-current-symbol-v1";
@@ -1795,11 +1726,6 @@
     const tradeCooldownStorageKey = "trade-cooldown-until-v1";
     const marketStorageKeyBase = "btc-market-dashboard-v1";
     const layoutStorageKey = "btc-dashboard-layout-mode";
-    let klineChart = null;
-    let klineCandleSeries = null;
-    let klineMaSeries = {};
-    let klineResizeObserver = null;
-    let latestChartKlines = [];
     const autoUpdateIntervalSeconds = 5;
     let autoUpdateEnabled = true;
     let autoUpdateCountdown = autoUpdateIntervalSeconds;
@@ -1975,12 +1901,6 @@
       document.querySelectorAll("#updateMarketBtn, .update-market-mobile").forEach((button) => {
         button.textContent = "更新 " + base + " 數據";
       });
-      const chartTitle = document.querySelector(".chart-panel h2");
-      if (chartTitle) chartTitle.textContent = tvSymbol(symbol) + " 15m K 線圖";
-      const chartPanel = document.querySelector(".chart-panel");
-      if (chartPanel) chartPanel.setAttribute("aria-label", tvSymbol(symbol) + " 15m K 線圖");
-      const chartEmpty = document.querySelector("#klineChartEmpty");
-      if (chartEmpty && !latestChartKlines.length) chartEmpty.textContent = "請更新 " + base + " 數據以顯示 15m K 線圖。";
       const quantityLabel = document.querySelector('label[for="quantity"]');
       if (quantityLabel) quantityLabel.textContent = "數量 " + base;
       const symbolDebug = document.querySelector("#symbolDebug");
@@ -2080,126 +2000,6 @@
       return url;
     }
 
-    function chartTime(kline) {
-      return Math.floor(kline.time / 1000);
-    }
-
-    function movingAverageLine(klines, period) {
-      const values = [];
-      for (let index = period - 1; index < klines.length; index += 1) {
-        const slice = klines.slice(index - period + 1, index + 1);
-        values.push({
-          time: chartTime(klines[index]),
-          value: Number(average(slice.map((item) => item.close)).toFixed(2))
-        });
-      }
-      return values;
-    }
-
-    function addLightweightSeries(chart, type, options) {
-      if (type === "candlestick" && typeof chart.addCandlestickSeries === "function") {
-        return chart.addCandlestickSeries(options);
-      }
-      if (type === "line" && typeof chart.addLineSeries === "function") {
-        return chart.addLineSeries(options);
-      }
-      const seriesType = type === "candlestick"
-        ? LightweightCharts.CandlestickSeries
-        : LightweightCharts.LineSeries;
-      return chart.addSeries(seriesType, options);
-    }
-
-    function resizeKlineChart() {
-      const host = document.querySelector("#btcKlineChart");
-      if (!host || !klineChart) return;
-      const rect = host.getBoundingClientRect();
-      klineChart.resize(Math.max(1, Math.floor(rect.width)), Math.max(1, Math.floor(rect.height)));
-    }
-
-    function initKlineChart() {
-      const host = document.querySelector("#btcKlineChart");
-      if (!host) return;
-      if (klineChart) return;
-      if (!window.LightweightCharts) {
-        document.querySelector("#klineChartEmpty").textContent = "圖表套件載入失敗，請稍後再試。";
-        return;
-      }
-
-      const rect = host.getBoundingClientRect();
-      klineChart = LightweightCharts.createChart(host, {
-        width: Math.max(1, Math.floor(rect.width)),
-        height: Math.max(1, Math.floor(rect.height)),
-        layout: {
-          background: { color: "#0b0e11" },
-          textColor: "#8f99a6"
-        },
-        grid: {
-          vertLines: { color: "#1f2933" },
-          horzLines: { color: "#1f2933" }
-        },
-        rightPriceScale: {
-          borderColor: "#262c33"
-        },
-        timeScale: {
-          borderColor: "#262c33",
-          timeVisible: true,
-          secondsVisible: false
-        },
-        crosshair: {
-          mode: LightweightCharts.CrosshairMode.Normal
-        }
-      });
-
-      klineCandleSeries = addLightweightSeries(klineChart, "candlestick", {
-        upColor: "#0ecb81",
-        downColor: "#f6465d",
-        borderUpColor: "#0ecb81",
-        borderDownColor: "#f6465d",
-        wickUpColor: "#0ecb81",
-        wickDownColor: "#f6465d"
-      });
-      klineMaSeries = {
-        ma5: addLightweightSeries(klineChart, "line", { color: "#f0b90b", lineWidth: 2, priceLineVisible: false, lastValueVisible: false }),
-        ma10: addLightweightSeries(klineChart, "line", { color: "#3b82f6", lineWidth: 2, priceLineVisible: false, lastValueVisible: false }),
-        ma30: addLightweightSeries(klineChart, "line", { color: "#d946ef", lineWidth: 2, priceLineVisible: false, lastValueVisible: false })
-      };
-
-      klineResizeObserver = new ResizeObserver(resizeKlineChart);
-      klineResizeObserver.observe(host);
-    }
-
-    function renderKlineChart(klines = latestChartKlines) {
-      latestChartKlines = Array.isArray(klines) ? klines : [];
-      initKlineChart();
-      const empty = document.querySelector("#klineChartEmpty");
-      if (!klineChart || !klineCandleSeries) return;
-      if (!latestChartKlines.length) {
-        klineCandleSeries.setData([]);
-        klineMaSeries.ma5.setData([]);
-        klineMaSeries.ma10.setData([]);
-        klineMaSeries.ma30.setData([]);
-        empty.classList.remove("hide");
-        resizeKlineChart();
-        setTimeout(resizeKlineChart, 0);
-        return;
-      }
-
-      const candleData = latestChartKlines.map((item) => ({
-        time: chartTime(item),
-        open: item.open,
-        high: item.high,
-        low: item.low,
-        close: item.close
-      }));
-      klineCandleSeries.setData(candleData);
-      klineMaSeries.ma5.setData(movingAverageLine(latestChartKlines, 5));
-      klineMaSeries.ma10.setData(movingAverageLine(latestChartKlines, 10));
-      klineMaSeries.ma30.setData(movingAverageLine(latestChartKlines, 30));
-      klineChart.timeScale().fitContent();
-      empty.classList.add("hide");
-      resizeKlineChart();
-      setTimeout(resizeKlineChart, 0);
-    }
     function setLayoutMode(mode) {
       const nextMode = ["auto", "desktop", "portrait"].includes(mode) ? mode : "auto";
       document.body.classList.remove("layout-auto", "layout-desktop", "layout-portrait");
@@ -3539,9 +3339,46 @@
     function scoreAdvancedAnalysis(analysis, basic) {
       return scoreAdvancedAnalysisV2(analysis, basic);
     }
+
+    function renderDecisionSummary(data) {
+      const defaults = {
+        quickEntry: "-",
+        quickStop: "-",
+        quickTargets: "-",
+        quickRr: "-",
+        quickSignalLevel: "-",
+        quickReason: "-",
+        quickTelegram: "-",
+        quickSetupType: "-"
+      };
+      if (!data) {
+        Object.entries(defaults).forEach(([id, value]) => {
+          const target = document.querySelector("#" + id);
+          if (target) target.textContent = value;
+        });
+        return;
+      }
+      const reasons = [...(data.hardBlockReasons || []), ...(data.warnings || [])].map(formatWarningLabel);
+      const values = {
+        quickEntry: data.entryZone || "-",
+        quickStop: Number.isFinite(data.stop) ? priceNumber(data.stop) : "-",
+        quickTargets: `${Number.isFinite(data.tp1) ? priceNumber(data.tp1) : "-"} / ${Number.isFinite(data.tp2) ? priceNumber(data.tp2) : "-"} / ${Number.isFinite(data.tp3) ? priceNumber(data.tp3) : "-"}`,
+        quickRr: `${Number.isFinite(data.rrToTp1) ? number(data.rrToTp1, 1) + "R" : "-"} / ${Number.isFinite(data.rrToTp2) ? number(data.rrToTp2, 1) + "R" : "-"} / ${Number.isFinite(data.rrToTp3) ? number(data.rrToTp3, 1) + "R" : "-"}`,
+        quickSignalLevel: data.signalLevel === "D" ? "不建議" : data.signalLevel || "-",
+        quickReason: reasons[0] || data.finalSignal || "-",
+        quickTelegram: data.telegramWillNotify ? "會推播" : `不推播${data.noTelegramReason ? "｜" + formatWarningLabel(data.noTelegramReason) : ""}`,
+        quickSetupType: formatSetupTypeLabel(data.setupType)
+      };
+      Object.entries(values).forEach(([id, value]) => {
+        const target = document.querySelector("#" + id);
+        if (target) target.textContent = value;
+      });
+    }
+
     function renderAdvancedAnalysis() {
       const ids = ["volumeStatus", "macdStatus", "atrStatus", "entryQuality", "finalSignal", "riskWarnings", "tradePlan", "analysisStatus"];
       if (!latestAdvancedAnalysis) {
+        renderDecisionSummary(null);
         document.querySelector("#volumeStatus").textContent = "資料不足";
         document.querySelector("#macdStatus").textContent = "資料不足";
         document.querySelector("#atrStatus").textContent = "資料不足";
@@ -3554,6 +3391,7 @@
         return;
       }
       const data = latestAdvancedAnalysis;
+      renderDecisionSummary(data);
       document.querySelector("#volumeStatus").textContent = `${number(data.volumeRatio, 2)}x｜${data.volumeStatus}`;
       document.querySelector("#macdStatus").textContent = data.macd.label;
       document.querySelector("#atrStatus").textContent = `${number(data.atr)}｜${number(data.atrInfo.percent, 3)}%｜${data.atrInfo.status}`;
@@ -3710,12 +3548,6 @@
         }
 
         try {
-          renderKlineChart(klines15m);
-        } catch (error) {
-          throw marketUpdateError("chart", `K線圖載入失敗：${error.message}`, error);
-        }
-
-        try {
           renderAdvancedAnalysis();
           updateMarketDashboard();
         } catch (error) {
@@ -3727,16 +3559,9 @@
         const errorType = error.marketUpdateType || "analysis";
         const errorTitle = errorType === "fetch"
           ? "BingX API 連線失敗"
-          : errorType === "chart"
-            ? "K線圖載入失敗"
-            : "前端分析錯誤";
+          : "前端分析錯誤";
         latestAdvancedAnalysis = null;
         if (errorType === "fetch") {
-          try {
-            renderKlineChart([]);
-          } catch {
-            // Ignore chart cleanup failures so the original API error remains visible.
-          }
           ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "recentHigh", "recentLow"].forEach((id) => {
             const input = document.querySelector("#" + id);
             if (input) input.value = "";
@@ -3748,7 +3573,7 @@
           // Keep the visible status focused on the original failure category.
         }
         document.querySelector("#priceSource").value = errorType === "fetch" ? "BingX API 連線失敗" : errorTitle;
-        document.querySelector("#klineSource").value = errorType === "chart" ? "K線圖載入失敗" : errorTitle;
+        document.querySelector("#klineSource").value = errorTitle;
         document.querySelector("#symbolDebug").textContent = "使用交易所：BingX｜使用 symbol：" + currentSymbol() + "｜原始顯示 symbol：" + tvSymbol(currentSymbol());
         try {
           updateMarketDashboard();
@@ -3835,7 +3660,6 @@
       localStorage.setItem(symbolStorageKey, currentSymbol());
       activeSymbol = currentSymbol();
       latestAdvancedAnalysis = null;
-      renderKlineChart([]);
       loadMarketInputs(activeSymbol);
       updateSymbolUi();
       updateMarketDashboard();
@@ -3889,7 +3713,6 @@
     loadBingxApiProxyUrl();
     loadSelectedSymbol();
     loadMarketInputs();
-    renderKlineChart();
     updateMarketDashboard();
     startAutoUpdate();
     updateBingxMarketData({ source: "auto" });
