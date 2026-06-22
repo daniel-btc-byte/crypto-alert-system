@@ -570,7 +570,7 @@
     }
 
     .signal-stats-panel {
-      padding: 16px;
+      padding: 14px;
       margin: 0 0 40px;
     }
 
@@ -579,7 +579,19 @@
       align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 14px;
+      margin-bottom: 8px;
+    }
+
+    .stats-meta-line {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .stats-meta-line span {
+      color: var(--ink);
+      font-weight: 700;
     }
 
     .signal-stats-actions {
@@ -597,8 +609,8 @@
     .signal-stats-grid {
       display: grid;
       grid-template-columns: repeat(8, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 14px;
+      gap: 8px;
+      margin-bottom: 10px;
     }
 
     .signal-section {
@@ -606,8 +618,8 @@
       border: 1px solid var(--line);
       border-radius: 18px;
       background: rgba(255, 255, 255, .02);
-      padding: 12px;
-      margin-bottom: 14px;
+      padding: 10px;
+      margin-bottom: 0;
     }
 
     .signal-section-title {
@@ -616,22 +628,22 @@
       justify-content: space-between;
       gap: 10px;
       color: var(--accent);
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 800;
-      margin: 0 0 10px;
+      margin: 0 0 8px;
     }
 
     .signal-kpi-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
+      gap: 8px;
     }
 
     .signal-stat-card {
-      min-height: 86px;
+      min-height: 72px;
       border: 1px solid var(--line);
       border-radius: 16px;
-      padding: 14px;
+      padding: 11px;
       background: var(--panel-soft);
     }
 
@@ -659,12 +671,12 @@
       display: block;
       color: var(--muted);
       font-size: 12px;
-      margin-bottom: 8px;
+      margin-bottom: 5px;
     }
 
     .signal-stat-card strong {
       display: block;
-      font-size: 20px;
+      font-size: 19px;
       overflow-wrap: anywhere;
     }
 
@@ -674,19 +686,128 @@
       border-radius: 12px;
     }
 
+    .strategy-diagnostics,
     .signal-diagnostics {
       border: 1px solid rgba(240, 185, 11, .28);
       border-radius: 16px;
-      padding: 12px 14px;
-      margin: 0 0 14px;
+      padding: 13px 14px;
+      margin: 0 0 10px;
       background: rgba(240, 185, 11, .08);
       color: var(--ink);
       line-height: 1.6;
     }
 
+    .signal-diagnostics.diagnostics-danger {
+      border-color: rgba(246, 70, 93, .42);
+      background: rgba(246, 70, 93, .08);
+    }
+
+    .signal-diagnostics.diagnostics-success {
+      border-color: rgba(14, 203, 129, .35);
+      background: rgba(14, 203, 129, .08);
+    }
+
+    .diagnostics-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .diagnostics-warning,
+    .diagnostics-danger,
+    .diagnostics-success {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .diagnostics-warning {
+      color: var(--amber);
+      background: rgba(240, 185, 11, .12);
+      border: 1px solid rgba(240, 185, 11, .3);
+    }
+
+    .diagnostics-danger {
+      color: var(--red);
+      background: rgba(246, 70, 93, .12);
+      border: 1px solid rgba(246, 70, 93, .32);
+    }
+
+    .diagnostics-success {
+      color: var(--green);
+      background: rgba(14, 203, 129, .12);
+      border: 1px solid rgba(14, 203, 129, .32);
+    }
+
     .signal-diagnostics ul {
       margin: 0;
       padding-left: 18px;
+    }
+
+    .recent-results-strip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .025);
+      padding: 10px 12px;
+      margin: 0 0 12px;
+    }
+
+    .recent-results-title {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: .04em;
+    }
+
+    .recent-results-list {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .recent-result-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 3px 8px;
+      border: 1px solid rgba(143, 153, 166, .28);
+      color: var(--muted);
+      background: rgba(143, 153, 166, .08);
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .recent-result-chip.tp {
+      border-color: rgba(14, 203, 129, .34);
+      color: var(--green);
+      background: rgba(14, 203, 129, .1);
+    }
+
+    .recent-result-chip.sl {
+      border-color: rgba(246, 70, 93, .36);
+      color: var(--red);
+      background: rgba(246, 70, 93, .1);
+    }
+
+    .recent-result-chip.expired {
+      border-color: rgba(240, 185, 11, .38);
+      color: var(--amber);
+      background: rgba(240, 185, 11, .1);
     }
 
     .signal-record-toolbar {
@@ -1621,27 +1742,6 @@
               </div>
             </div>
           </section>
-          <section class="market-group" aria-label="關鍵位置與設定">
-            <h3 class="market-group-title">關鍵位置與設定</h3>
-            <div class="market-group-grid">
-              <div class="field">
-                <label for="recentHigh">最近高點</label>
-                <input id="recentHigh" type="number" min="0" step="0.01">
-              </div>
-              <div class="field">
-                <label for="recentLow">最近低點</label>
-                <input id="recentLow" type="number" min="0" step="0.01">
-              </div>
-              <div class="field">
-                <label for="chaseBufferPercent">追價緩衝百分比</label>
-                <input id="chaseBufferPercent" type="number" min="0" step="0.1" value="0.3">
-              </div>
-              <div class="field">
-                <label for="tp3R">TP3 R 倍數</label>
-                <input id="tp3R" type="number" min="0.1" step="0.1" value="2.5">
-              </div>
-            </div>
-          </section>
           <section class="advanced-settings collapsible-panel soft">
             <div class="collapsible-head">
               <div>
@@ -1652,20 +1752,36 @@
             </div>
             <div class="collapsible-content collapsed" id="advancedSettingsContent">
               <div class="market-group-grid">
-              <div class="field">
-                <label for="bingxApiProxyUrl">BingX API Proxy URL</label>
-                <input id="bingxApiProxyUrl" type="url" placeholder="https://xxxx.workers.dev">
-              </div>
-              <div class="field"><label for="minStopBtc">最小止損距離 BTC (%)</label><input id="minStopBtc" type="number" min="0" step="0.1" value="0.5"></div>
-              <div class="field"><label for="minStopEth">最小止損距離 ETH (%)</label><input id="minStopEth" type="number" min="0" step="0.1" value="0.7"></div>
-              <div class="field"><label for="minStopSol">最小止損距離 SOL (%)</label><input id="minStopSol" type="number" min="0" step="0.1" value="1"></div>
-              <div class="field"><label for="minStopXrp">最小止損距離 XRP (%)</label><input id="minStopXrp" type="number" min="0" step="0.1" value="1"></div>
-              <div class="field"><label for="cooldownMinutes">冷卻時間（分鐘）</label><input id="cooldownMinutes" type="number" min="0" step="1" value="30"></div>
-              <div class="field"><label for="ma30LimitBtc">BTC MA30 最大偏離 (%)</label><input id="ma30LimitBtc" type="number" min="0" step="0.1" value="1.2"></div>
-              <div class="field"><label for="ma30LimitEth">ETH MA30 最大偏離 (%)</label><input id="ma30LimitEth" type="number" min="0" step="0.1" value="1.5"></div>
-              <div class="field"><label for="ma30LimitSol">SOL MA30 最大偏離 (%)</label><input id="ma30LimitSol" type="number" min="0" step="0.1" value="2"></div>
-              <div class="field"><label for="ma30LimitXrp">XRP MA30 最大偏離 (%)</label><input id="ma30LimitXrp" type="number" min="0" step="0.1" value="2"></div>
-              <div class="field"><label for="ma30LimitDoge">DOGE MA30 最大偏離 (%)</label><input id="ma30LimitDoge" type="number" min="0" step="0.1" value="2"></div>
+                <div class="field">
+                  <label for="recentHigh">最近高點</label>
+                  <input id="recentHigh" type="number" min="0" step="0.01">
+                </div>
+                <div class="field">
+                  <label for="recentLow">最近低點</label>
+                  <input id="recentLow" type="number" min="0" step="0.01">
+                </div>
+                <div class="field">
+                  <label for="chaseBufferPercent">追價緩衝百分比</label>
+                  <input id="chaseBufferPercent" type="number" min="0" step="0.1" value="0.3">
+                </div>
+                <div class="field">
+                  <label for="tp3R">TP3 R 倍數</label>
+                  <input id="tp3R" type="number" min="0.1" step="0.1" value="2.5">
+                </div>
+                <div class="field">
+                  <label for="bingxApiProxyUrl">BingX API Proxy URL</label>
+                  <input id="bingxApiProxyUrl" type="url" placeholder="https://xxxx.workers.dev">
+                </div>
+                <div class="field"><label for="minStopBtc">最小止損距離 BTC (%)</label><input id="minStopBtc" type="number" min="0" step="0.1" value="0.5"></div>
+                <div class="field"><label for="minStopEth">最小止損距離 ETH (%)</label><input id="minStopEth" type="number" min="0" step="0.1" value="0.7"></div>
+                <div class="field"><label for="minStopSol">最小止損距離 SOL (%)</label><input id="minStopSol" type="number" min="0" step="0.1" value="1"></div>
+                <div class="field"><label for="minStopXrp">最小止損距離 XRP (%)</label><input id="minStopXrp" type="number" min="0" step="0.1" value="1"></div>
+                <div class="field"><label for="cooldownMinutes">冷卻時間（分鐘）</label><input id="cooldownMinutes" type="number" min="0" step="1" value="30"></div>
+                <div class="field"><label for="ma30LimitBtc">BTC MA30 最大偏離 (%)</label><input id="ma30LimitBtc" type="number" min="0" step="0.1" value="1.2"></div>
+                <div class="field"><label for="ma30LimitEth">ETH MA30 最大偏離 (%)</label><input id="ma30LimitEth" type="number" min="0" step="0.1" value="1.5"></div>
+                <div class="field"><label for="ma30LimitSol">SOL MA30 最大偏離 (%)</label><input id="ma30LimitSol" type="number" min="0" step="0.1" value="2"></div>
+                <div class="field"><label for="ma30LimitXrp">XRP MA30 最大偏離 (%)</label><input id="ma30LimitXrp" type="number" min="0" step="0.1" value="2"></div>
+                <div class="field"><label for="ma30LimitDoge">DOGE MA30 最大偏離 (%)</label><input id="ma30LimitDoge" type="number" min="0" step="0.1" value="2"></div>
                 <div class="field">
                   <label for="trendMode">大方向模式</label>
                   <select id="trendMode">
@@ -1788,13 +1904,16 @@
           <h2>訊號統計 / 回測追蹤</h2>
           <div class="note-line" id="signalStatsStatus">正在讀取訊號統計資料</div>
           <div class="note-line">回測從下一根 15m K 開始統計，訊號當根 K 不列入。</div>
+          <div class="stats-meta-line">
+            最後更新：<span id="signalLastUpdated">-</span>｜API：<span id="signalApiStatus">讀取中</span>｜進行中：<span id="signalOpenCount">-</span>｜<span id="signalCurrentPage">第 1 / 1 頁</span>
+          </div>
         </div>
         <div class="signal-stats-actions">
           <button class="btn" id="refreshSignalStatsBtn" type="button">更新統計</button>
           <button class="btn danger clear-signals-btn" id="clearSignalStatsBtn" type="button">清空紀錄</button>
         </div>
       </div>
-      <div class="signal-stats-grid">
+      <div class="signal-stats-grid compact-stats-grid">
         <section class="signal-section">
           <div class="signal-section-title">核心績效區</div>
           <div class="signal-kpi-grid">
@@ -1822,17 +1941,12 @@
             <div class="signal-stat-card success"><span>TP3 達標率</span><strong id="signalTp3Rate">-</strong></div>
           </div>
         </section>
-        <section class="signal-section">
-          <div class="signal-section-title">目前狀態區</div>
-          <div class="signal-kpi-grid">
-            <div class="signal-stat-card primary"><span>進行中訊號</span><strong id="signalOpenCount">-</strong></div>
-            <div class="signal-stat-card"><span>最後更新時間</span><strong id="signalLastUpdated">-</strong></div>
-            <div class="signal-stat-card"><span>API 狀態</span><strong id="signalApiStatus">讀取中</strong></div>
-            <div class="signal-stat-card"><span>目前頁面</span><strong id="signalCurrentPage">-</strong></div>
-          </div>
-        </section>
       </div>
       <div class="signal-diagnostics" id="signalDiagnostics">正在建立回測診斷摘要...</div>
+      <section class="recent-results-strip" aria-label="最近 10 筆">
+        <div class="recent-results-title">最近 10 筆</div>
+        <div class="recent-results-list" id="recentResultsStrip">等待資料</div>
+      </section>
       <div class="signal-record-toolbar" aria-label="回測紀錄篩選">
         <div class="field">
           <label for="signalFilterSymbol">幣種</label>
@@ -2850,6 +2964,33 @@
       return `<span class="badge result-badge ${className}">${label}</span>`;
     }
 
+    function recentResultChip(record) {
+      const type = outcomeType(record);
+      const outcome = String(record?.outcome || "").toUpperCase();
+      const label = outcome === "TP3_HIT" ? "TP3"
+        : outcome === "TP2_HIT" ? "TP2"
+        : outcome === "TP1_HIT" ? "TP1"
+        : type === "sl" ? "SL"
+        : type === "expired" ? "逾"
+        : type === "open" ? "中"
+        : "？";
+      const finalR = Number(record?.finalR);
+      const rPart = Number.isFinite(finalR)
+        ? `${finalR > 0 ? "+" : ""}${number(finalR, 2)}R`
+        : "";
+      const className = type === "tp" ? "tp" : type === "sl" ? "sl" : type === "expired" ? "expired" : "open";
+      return `<span class="recent-result-chip ${className}">${label}${rPart ? ` ${rPart}` : ""}</span>`;
+    }
+
+    function renderRecentResultsStrip(records = []) {
+      const target = document.querySelector("#recentResultsStrip");
+      if (!target) return;
+      const recent = (Array.isArray(records) ? records : []).slice(0, 10);
+      target.innerHTML = recent.length
+        ? recent.map(recentResultChip).join("")
+        : `<span class="muted">目前沒有近期紀錄</span>`;
+    }
+
     function isMissedProfit(record) {
       const maxReachedR = Number(record?.maxReachedR);
       const finalR = Number(record?.finalR);
@@ -2898,9 +3039,14 @@
       const closedSignals = Number(stats?.closedSignals) || 0;
       const missedProfitCount = (Array.isArray(recentSignals) ? recentSignals : []).filter(isMissedProfit).length;
 
+      let tone = "warning";
       if (totalSignals < 50) messages.push("樣本數仍偏少，建議累積至少 50 筆後再判斷策略穩定性。");
-      if (Number.isFinite(winRate) && winRate < 30) messages.push("目前勝率偏低，需檢查進場條件或出場規則。");
+      if (Number.isFinite(winRate) && winRate < 30) {
+        tone = "danger";
+        messages.push("目前勝率偏低，需檢查進場條件或出場規則。");
+      }
       if (Number.isFinite(averageMaxR) && averageMaxR >= 1 && Number.isFinite(totalPnlR) && totalPnlR < 0) {
+        tone = "danger";
         messages.push("市場曾給過獲利空間，但最終 R 為負，優先檢查保本與鎖利機制。");
       }
       if (expired >= 5 && (!closedSignals || expired / closedSignals >= 0.25)) {
@@ -2909,8 +3055,15 @@
       if (missedProfitCount > 0) {
         messages.push(`本頁有 ${missedProfitCount} 筆有賺超過 1R 但最後沒帶走，建議優先檢查移動停損。`);
       }
-      if (!messages.length) messages.push("目前沒有明顯單一問題，請持續累積樣本。");
-      return `<ul>${messages.map((message) => `<li>${message}</li>`).join("")}</ul>`;
+      if (!messages.length) {
+        tone = "success";
+        messages.push("目前沒有明顯單一問題，請持續累積樣本。");
+      }
+      const label = tone === "danger" ? "重點檢查" : tone === "success" ? "穩定觀察" : "提醒";
+      return {
+        tone,
+        html: `<div class="diagnostics-title">策略診斷 <span class="diagnostics-${tone}">${label}</span></div><ul>${messages.map((message) => `<li>${message}</li>`).join("")}</ul>`
+      };
     }
 
     async function fetchSignalStats(page = signalStatsPage, limit = signalStatsLimit, signal) {
@@ -3119,6 +3272,7 @@
         document.querySelector("#signalApiStatus").textContent = "讀取中";
         document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="9">正在載入訊號紀錄...</td></tr>`;
         document.querySelector("#signalRecordCards").innerHTML = `<div class="empty">正在載入訊號紀錄...</div>`;
+        document.querySelector("#recentResultsStrip").innerHTML = `<span class="muted">載入中...</span>`;
       }
       renderSignalPagination(signalStatsPagination);
     }
@@ -3149,10 +3303,15 @@
       document.querySelector("#signalMissedProfitCount").textContent = recentSignals.filter(isMissedProfit).length;
       document.querySelector("#signalTp3Rate").textContent = percentText(Number(stats.tp3HitRate));
       document.querySelector("#signalAverageMaxR").textContent = rText(stats.averageMaxR);
-      document.querySelector("#signalDiagnostics").innerHTML = buildSignalDiagnostics(stats, recentSignals);
+      const diagnostics = buildSignalDiagnostics(stats, recentSignals);
+      const diagnosticsTarget = document.querySelector("#signalDiagnostics");
+      diagnosticsTarget.classList.remove("diagnostics-warning", "diagnostics-danger", "diagnostics-success");
+      diagnosticsTarget.classList.add(`diagnostics-${diagnostics.tone}`);
+      diagnosticsTarget.innerHTML = diagnostics.html;
       document.querySelector("#signalApiStatus").textContent = "正常";
       document.querySelector("#signalLastUpdated").textContent = new Date().toLocaleString("zh-TW", { hour12: false });
       document.querySelector("#signalCurrentPage").textContent = `第 ${pagination.page || 1} / ${pagination.totalPages || 1} 頁`;
+      renderRecentResultsStrip(recentSignals);
       renderSignalRecordViews(recentSignals);
       renderSignalPagination(pagination);
       document.querySelector("#signalStatsStatus").textContent = pagination.total
@@ -3176,6 +3335,7 @@
         document.querySelector("#signalApiStatus").textContent = "錯誤";
         document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="9">API 錯誤，無法載入訊號紀錄</td></tr>`;
         document.querySelector("#signalRecordCards").innerHTML = `<div class="empty">API 錯誤，無法載入訊號紀錄</div>`;
+        document.querySelector("#recentResultsStrip").innerHTML = `<span class="muted">讀取失敗</span>`;
       } finally {
         if (requestId === signalStatsRequestSequence) {
           setSignalStatsLoading(false);
