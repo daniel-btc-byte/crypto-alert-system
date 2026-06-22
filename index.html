@@ -493,11 +493,41 @@
       gap: 8px;
     }
 
+    .clear-signals-btn {
+      margin-left: 10px;
+    }
+
     .signal-stats-grid {
       display: grid;
       grid-template-columns: repeat(8, minmax(0, 1fr));
       gap: 12px;
       margin-bottom: 14px;
+    }
+
+    .signal-section {
+      grid-column: 1 / -1;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .02);
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+
+    .signal-section-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 800;
+      margin: 0 0 10px;
+    }
+
+    .signal-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
     }
 
     .signal-stat-card {
@@ -506,6 +536,26 @@
       border-radius: 16px;
       padding: 14px;
       background: var(--panel-soft);
+    }
+
+    .signal-stat-card.primary {
+      border-color: rgba(59, 130, 246, .35);
+      background: linear-gradient(180deg, rgba(59, 130, 246, .12), rgba(255, 255, 255, .03));
+    }
+
+    .signal-stat-card.success {
+      border-color: rgba(14, 203, 129, .35);
+      background: linear-gradient(180deg, rgba(14, 203, 129, .12), rgba(255, 255, 255, .03));
+    }
+
+    .signal-stat-card.warning {
+      border-color: rgba(240, 185, 11, .38);
+      background: linear-gradient(180deg, rgba(240, 185, 11, .12), rgba(255, 255, 255, .03));
+    }
+
+    .signal-stat-card.danger {
+      border-color: rgba(246, 70, 93, .38);
+      background: linear-gradient(180deg, rgba(246, 70, 93, .12), rgba(255, 255, 255, .03));
     }
 
     .signal-stat-card span {
@@ -527,9 +577,52 @@
       border-radius: 12px;
     }
 
+    .signal-diagnostics {
+      border: 1px solid rgba(240, 185, 11, .28);
+      border-radius: 16px;
+      padding: 12px 14px;
+      margin: 0 0 14px;
+      background: rgba(240, 185, 11, .08);
+      color: var(--ink);
+      line-height: 1.6;
+    }
+
+    .signal-diagnostics ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .signal-record-toolbar {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr)) auto;
+      gap: 10px;
+      align-items: end;
+      margin: 0 0 12px;
+    }
+
+    .signal-record-toolbar .checkbox-field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 40px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .signal-record-toolbar input[type="checkbox"] {
+      width: 18px;
+      min-height: 18px;
+    }
+
+    .signal-filter-summary {
+      color: var(--muted);
+      font-size: 13px;
+      margin: -4px 0 10px;
+    }
+
     .signal-records-table {
       width: 100%;
-      min-width: 920px;
+      min-width: 1180px;
       border-collapse: collapse;
       font-size: 13px;
     }
@@ -553,6 +646,140 @@
       color: var(--muted);
       font-weight: 600;
       background: var(--panel-strong);
+    }
+
+    .signal-records-table tr.missed-profit-row td {
+      background: rgba(240, 185, 11, .08);
+      border-top: 1px solid rgba(240, 185, 11, .28);
+      border-bottom-color: rgba(240, 185, 11, .24);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .04);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .badge.long,
+    .badge.tp,
+    .badge.success {
+      border-color: rgba(14, 203, 129, .35);
+      color: var(--green);
+      background: rgba(14, 203, 129, .1);
+    }
+
+    .badge.short,
+    .badge.sl,
+    .badge.danger {
+      border-color: rgba(246, 70, 93, .35);
+      color: var(--red);
+      background: rgba(246, 70, 93, .1);
+    }
+
+    .badge.expired,
+    .badge.warning {
+      border-color: rgba(240, 185, 11, .38);
+      color: var(--amber);
+      background: rgba(240, 185, 11, .1);
+    }
+
+    .badge.open,
+    .badge.neutral {
+      border-color: rgba(143, 153, 166, .35);
+      color: var(--muted);
+      background: rgba(143, 153, 166, .08);
+    }
+
+    .badge.grade-splus,
+    .badge.grade-s {
+      border-color: rgba(240, 185, 11, .45);
+      color: var(--amber);
+      background: rgba(240, 185, 11, .12);
+    }
+
+    .badge.grade-a {
+      border-color: rgba(14, 203, 129, .35);
+      color: var(--green);
+      background: rgba(14, 203, 129, .1);
+    }
+
+    .badge.grade-b {
+      border-color: rgba(59, 130, 246, .35);
+      color: #8ab4ff;
+      background: rgba(59, 130, 246, .1);
+    }
+
+    .r-value.success {
+      color: var(--green);
+      font-weight: 800;
+    }
+
+    .r-value.danger {
+      color: var(--red);
+      font-weight: 800;
+    }
+
+    .r-value.muted {
+      color: var(--muted);
+    }
+
+    .signal-record-cards {
+      display: none;
+      gap: 10px;
+    }
+
+    .signal-record-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: var(--panel-soft);
+    }
+
+    .signal-record-card.missed-profit-row {
+      border-color: rgba(240, 185, 11, .42);
+      background: rgba(240, 185, 11, .08);
+    }
+
+    .signal-card-head,
+    .signal-card-badges {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .signal-card-head {
+      margin-bottom: 10px;
+    }
+
+    .signal-card-time {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .signal-card-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .signal-card-grid span {
+      color: var(--muted);
+      display: block;
+      font-size: 11px;
+      margin-bottom: 2px;
     }
 
     .signal-pagination {
@@ -997,6 +1224,10 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .signal-section {
+        grid-column: 1 / -1;
+      }
+
       .signal-stats-head {
         flex-direction: column;
       }
@@ -1082,6 +1313,40 @@
 
       .mode-btn {
         flex: 1;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .signal-kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .signal-diagnostics {
+        width: 100%;
+      }
+
+      .signal-record-toolbar {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .signal-record-toolbar .checkbox-field {
+        grid-column: 1 / -1;
+      }
+
+      .signal-records-wrap {
+        display: none;
+      }
+
+      .signal-record-cards {
+        display: grid;
+      }
+
+      .signal-card-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .clear-signals-btn {
+        margin-left: 0;
       }
     }
 
@@ -1331,21 +1596,94 @@
         </div>
         <div class="signal-stats-actions">
           <button class="btn" id="refreshSignalStatsBtn" type="button">更新統計</button>
-          <button class="btn danger" id="clearSignalStatsBtn" type="button">清空回測紀錄</button>
+          <button class="btn danger clear-signals-btn" id="clearSignalStatsBtn" type="button">清空紀錄</button>
         </div>
       </div>
       <div class="signal-stats-grid">
-        <div class="signal-stat-card"><span>總訊號</span><strong id="signalTotal">-</strong></div>
-        <div class="signal-stat-card"><span>勝率</span><strong id="signalWinRate">-</strong></div>
-        <div class="signal-stat-card"><span>S+ / S / A / B 勝率</span><strong id="signalGradeRates">-</strong></div>
-        <div class="signal-stat-card"><span>多單 / 空單勝率</span><strong id="signalSideRates">-</strong></div>
-        <div class="signal-stat-card"><span>回踩單 / 突破單</span><strong id="signalSetupRates">-</strong></div>
-        <div class="signal-stat-card"><span>進行中訊號</span><strong id="signalOpenCount">-</strong></div>
-        <div class="signal-stat-card"><span>總盈虧 (R)</span><strong id="signalTotalPnl">-</strong></div>
-        <div class="signal-stat-card"><span>止盈1 / 止盈2 / 止盈3 / 止損 / 逾時</span><strong id="signalOutcomes">-</strong></div>
-        <div class="signal-stat-card"><span>TP3 達標率</span><strong id="signalTp3Rate">-</strong></div>
-        <div class="signal-stat-card"><span>平均最大 R</span><strong id="signalAverageMaxR">-</strong></div>
+        <section class="signal-section">
+          <div class="signal-section-title">核心績效區</div>
+          <div class="signal-kpi-grid">
+            <div class="signal-stat-card primary"><span>總訊號</span><strong id="signalTotal">-</strong></div>
+            <div class="signal-stat-card success"><span>勝率</span><strong id="signalWinRate">-</strong></div>
+            <div class="signal-stat-card primary"><span>總盈虧 R</span><strong id="signalTotalPnl">-</strong></div>
+            <div class="signal-stat-card warning"><span>平均最大 R</span><strong id="signalAverageMaxR">-</strong></div>
+          </div>
+        </section>
+        <section class="signal-section">
+          <div class="signal-section-title">出場品質區</div>
+          <div class="signal-kpi-grid">
+            <div class="signal-stat-card success"><span>TP1 / TP2 / TP3 達標</span><strong id="signalOutcomes">-</strong></div>
+            <div class="signal-stat-card danger"><span>止損</span><strong id="signalStopLossCount">-</strong></div>
+            <div class="signal-stat-card warning"><span>逾時</span><strong id="signalExpiredCount">-</strong></div>
+            <div class="signal-stat-card warning"><span>本頁有賺變虧</span><strong id="signalMissedProfitCount">-</strong></div>
+          </div>
+        </section>
+        <section class="signal-section">
+          <div class="signal-section-title">訊號品質區</div>
+          <div class="signal-kpi-grid">
+            <div class="signal-stat-card"><span>S+ / S / A / B 勝率</span><strong id="signalGradeRates">-</strong></div>
+            <div class="signal-stat-card"><span>多單 / 空單勝率</span><strong id="signalSideRates">-</strong></div>
+            <div class="signal-stat-card"><span>回踩單 / 突破單 / 早段突破</span><strong id="signalSetupRates">-</strong></div>
+            <div class="signal-stat-card success"><span>TP3 達標率</span><strong id="signalTp3Rate">-</strong></div>
+          </div>
+        </section>
+        <section class="signal-section">
+          <div class="signal-section-title">目前狀態區</div>
+          <div class="signal-kpi-grid">
+            <div class="signal-stat-card primary"><span>進行中訊號</span><strong id="signalOpenCount">-</strong></div>
+            <div class="signal-stat-card"><span>最後更新時間</span><strong id="signalLastUpdated">-</strong></div>
+            <div class="signal-stat-card"><span>API 狀態</span><strong id="signalApiStatus">讀取中</strong></div>
+            <div class="signal-stat-card"><span>目前頁面</span><strong id="signalCurrentPage">-</strong></div>
+          </div>
+        </section>
       </div>
+      <div class="signal-diagnostics" id="signalDiagnostics">正在建立回測診斷摘要...</div>
+      <div class="signal-record-toolbar" aria-label="回測紀錄篩選">
+        <div class="field">
+          <label for="signalFilterSymbol">幣種</label>
+          <select id="signalFilterSymbol">
+            <option value="">全部</option>
+            <option value="BTC-USDT">BTC-USDT</option>
+            <option value="ETH-USDT">ETH-USDT</option>
+            <option value="XRP-USDT">XRP-USDT</option>
+            <option value="DOGE-USDT">DOGE-USDT</option>
+            <option value="SOL-USDT">SOL-USDT</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="signalFilterDirection">方向</label>
+          <select id="signalFilterDirection">
+            <option value="">全部</option>
+            <option value="long">做多</option>
+            <option value="short">做空</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="signalFilterLevel">等級</label>
+          <select id="signalFilterLevel">
+            <option value="">全部</option>
+            <option value="S+">S+</option>
+            <option value="S">S</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="signalFilterOutcome">結果</label>
+          <select id="signalFilterOutcome">
+            <option value="">全部</option>
+            <option value="tp">止盈</option>
+            <option value="sl">止損</option>
+            <option value="expired">逾時</option>
+            <option value="open">進行中</option>
+          </select>
+        </div>
+        <label class="checkbox-field" for="signalFilterMissedProfit">
+          <input id="signalFilterMissedProfit" type="checkbox">
+          只看有賺變虧
+        </label>
+      </div>
+      <div class="signal-filter-summary" id="signalFilterSummary">目前顯示 0 / 本頁 0 筆</div>
       <div class="signal-records-wrap">
         <table class="signal-records-table">
           <thead>
@@ -1371,6 +1709,7 @@
           <tbody id="signalRecords"></tbody>
         </table>
       </div>
+      <div class="signal-record-cards" id="signalRecordCards"></div>
       <div class="signal-pagination" aria-label="訊號紀錄分頁">
         <div class="signal-page-size">
           <label for="signalPageLimit">每頁筆數</label>
@@ -1471,6 +1810,9 @@
     let signalStatsLoading = false;
     let signalStatsRequestSequence = 0;
     let signalStatsAbortController = null;
+    let latestSignalRecords = [];
+    let latestSignalStats = {};
+    let signalRecordFilters = { symbol: "", direction: "", level: "", outcome: "", missedProfit: false };
     let signalStatsPagination = {
       page: 1,
       limit: 50,
@@ -2199,14 +2541,101 @@
       return value ? "是" : "否";
     }
 
+    function targetIcon(value) {
+      return value ? "✅" : "❌";
+    }
+
     function rText(value) {
+      if (value === null || value === undefined || value === "") return "-";
       const numeric = Number(value);
       return Number.isFinite(numeric) ? `${number(numeric, 2)} R` : "-";
+    }
+
+    function rClass(value) {
+      if (value === null || value === undefined || value === "") return "muted";
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || numeric === 0) return "muted";
+      return numeric > 0 ? "success" : "danger";
+    }
+
+    function rValueHtml(value) {
+      return `<span class="r-value ${rClass(value)}">${rText(value)}</span>`;
     }
 
     function directionLabel(record) {
       const base = record?.direction === "long" ? "做多" : record?.direction === "short" ? "做空" : "-";
       return record?.provisionalDirection ? `${base}<br><span class="muted">早段方向，尚未完全確認</span>` : base;
+    }
+
+    function directionBadge(record) {
+      const label = record?.direction === "long" ? "做多" : record?.direction === "short" ? "做空" : "-";
+      const type = record?.direction === "long" ? "long" : record?.direction === "short" ? "short" : "neutral";
+      const note = record?.provisionalDirection ? `<br><span class="muted">早段方向，尚未完全確認</span>` : "";
+      return `<span class="badge ${type}">${label}</span>${note}`;
+    }
+
+    function levelBadge(level) {
+      const normalized = String(level || "-").toUpperCase();
+      const className = normalized === "S+" ? "grade-splus" : normalized === "S" ? "grade-s" : normalized === "A" ? "grade-a" : normalized === "B" ? "grade-b" : "neutral";
+      return `<span class="badge ${className}">${normalized}</span>`;
+    }
+
+    function outcomeType(record) {
+      const status = String(record?.status || record?.result || "").toUpperCase();
+      const outcome = String(record?.outcome || "").toUpperCase();
+      if (status === "OPEN" || record?.result === "OPEN") return "open";
+      if (outcome === "SL_HIT") return "sl";
+      if (outcome === "EXPIRED") return "expired";
+      if (outcome === "TP1_HIT" || outcome === "TP2_HIT" || outcome === "TP3_HIT") return "tp";
+      return "neutral";
+    }
+
+    function outcomeBadge(record) {
+      const type = outcomeType(record);
+      const className = type === "tp" ? "tp" : type === "sl" ? "sl" : type === "expired" ? "expired" : type === "open" ? "open" : "neutral";
+      return `<span class="badge ${className}">${signalOutcomeLabel(record)}</span>`;
+    }
+
+    function isMissedProfit(record) {
+      const maxReachedR = Number(record?.maxReachedR);
+      const finalR = Number(record?.finalR);
+      return Number.isFinite(maxReachedR) && maxReachedR >= 1 && Number.isFinite(finalR) && finalR <= 0;
+    }
+
+    function applySignalRecordFilters(records) {
+      return (Array.isArray(records) ? records : []).filter((record) => {
+        if (signalRecordFilters.symbol && record.symbol !== signalRecordFilters.symbol) return false;
+        if (signalRecordFilters.direction && record.direction !== signalRecordFilters.direction) return false;
+        if (signalRecordFilters.level && record.signalLevel !== signalRecordFilters.level) return false;
+        if (signalRecordFilters.outcome && outcomeType(record) !== signalRecordFilters.outcome) return false;
+        if (signalRecordFilters.missedProfit && !isMissedProfit(record)) return false;
+        return true;
+      });
+    }
+
+    function buildSignalDiagnostics(stats, recentSignals) {
+      const messages = [];
+      const totalSignals = Number(stats?.totalSignals) || 0;
+      const winRate = Number(stats?.overallWinRate);
+      const averageMaxR = Number(stats?.averageMaxR);
+      const totalPnlR = Number(stats?.totalPnlR);
+      const expired = Number(stats?.expired) || 0;
+      const closedSignals = Number(stats?.closedSignals) || 0;
+      const missedProfitCount = (Array.isArray(recentSignals) ? recentSignals : []).filter(isMissedProfit).length;
+
+      if (totalSignals < 50) messages.push("樣本數仍偏少，建議累積至少 50 筆後再判斷策略穩定性。");
+      if (Number.isFinite(winRate) && winRate < 30) messages.push("目前勝率偏低，需檢查進場條件或出場規則。");
+      if (Number.isFinite(averageMaxR) && averageMaxR >= 1 && Number.isFinite(totalPnlR) && totalPnlR < 0) {
+        messages.push("市場曾給過獲利空間，但最終 R 為負，優先檢查保本與鎖利機制。");
+      }
+      if (expired >= 5 && (!closedSignals || expired / closedSignals >= 0.25)) {
+        messages.push("逾時單偏多，可能代表進場太早或 TP 距離過遠。");
+      }
+      if (missedProfitCount > 0) {
+        messages.push(`本頁有 ${missedProfitCount} 筆有賺超過 1R 但最後沒帶走，建議優先檢查移動停損。`);
+      }
+      if (!messages.length) messages.push("目前沒有明顯單一問題，請持續累積樣本。");
+      return `<ul>${messages.map((message) => `<li>${message}</li>`).join("")}</ul>`;
     }
 
     async function fetchSignalStats(page = signalStatsPage, limit = signalStatsLimit, signal) {
@@ -2223,7 +2652,7 @@
     }
 
     async function clearSignalStats() {
-      const confirmed = window.confirm("確定要清空所有回測紀錄嗎？這會刪除 Worker KV 中所有 signal: 開頭的資料，且無法復原。");
+      const confirmed = window.confirm("確定清空所有回測紀錄？這會刪除 Worker KV 中所有 signal 紀錄，無法復原。請確認你不是誤按。");
       if (!confirmed) return;
 
       const url = clearSignalsEndpoint();
@@ -2327,6 +2756,85 @@
       document.querySelector("#signalNextPage").disabled = signalStatsLoading || !signalStatsPagination.hasNext;
     }
 
+    function renderSignalRecordViews(records = latestSignalRecords) {
+      const filtered = applySignalRecordFilters(records);
+      const tableBody = document.querySelector("#signalRecords");
+      const cardList = document.querySelector("#signalRecordCards");
+      const summary = document.querySelector("#signalFilterSummary");
+      if (summary) summary.textContent = `目前顯示 ${filtered.length} / 本頁 ${records.length} 筆`;
+
+      const rowHtml = (record) => {
+        const missed = isMissedProfit(record);
+        return `
+          <tr class="${missed ? "missed-profit-row" : ""}">
+            <td>${record.createdAt ? new Date(record.createdAt).toLocaleString("zh-TW", { hour12: false }) : "-"}</td>
+            <td>${record.symbol || "-"}</td>
+            <td>${directionBadge(record)}</td>
+            <td>${levelBadge(record.signalLevel)}</td>
+            <td>${formatSetupTypeLabel(record.setupType)}</td>
+            <td>${priceNumber(Number(record.entry))}</td>
+            <td>${priceNumber(Number(record.stop))}</td>
+            <td>${priceNumber(Number(record.tp1))}</td>
+            <td>${priceNumber(Number(record.tp2))}</td>
+            <td>${priceNumber(Number(record.tp3))}</td>
+            <td>${targetIcon(recordTargetReached(record, 1))}</td>
+            <td>${targetIcon(recordTargetReached(record, 2))}</td>
+            <td>${targetIcon(recordTargetReached(record, 3))}</td>
+            <td>${rValueHtml(record.maxReachedR)}</td>
+            <td>${rValueHtml(record.finalR)}</td>
+            <td>${outcomeBadge(record)}</td>
+          </tr>
+        `;
+      };
+
+      const cardHtml = (record) => {
+        const missed = isMissedProfit(record);
+        return `
+          <article class="signal-record-card ${missed ? "missed-profit-row" : ""}">
+            <div class="signal-card-head">
+              <div>
+                <strong>${record.symbol || "-"}</strong>
+                <div class="signal-card-time">${record.createdAt ? new Date(record.createdAt).toLocaleString("zh-TW", { hour12: false }) : "-"}</div>
+              </div>
+              <div class="signal-card-badges">${directionBadge(record)} ${levelBadge(record.signalLevel)} ${outcomeBadge(record)}</div>
+            </div>
+            <div class="signal-card-grid">
+              <div><span>型態</span>${formatSetupTypeLabel(record.setupType)}</div>
+              <div><span>進場</span>${priceNumber(Number(record.entry))}</div>
+              <div><span>止損</span>${priceNumber(Number(record.stop))}</div>
+              <div><span>TP1 / TP2 / TP3</span>${priceNumber(Number(record.tp1))} / ${priceNumber(Number(record.tp2))} / ${priceNumber(Number(record.tp3))}</div>
+              <div><span>最大 R</span>${rValueHtml(record.maxReachedR)}</div>
+              <div><span>最終 R</span>${rValueHtml(record.finalR)}</div>
+              <div><span>TP 達標</span>TP1 ${targetIcon(recordTargetReached(record, 1))}　TP2 ${targetIcon(recordTargetReached(record, 2))}　TP3 ${targetIcon(recordTargetReached(record, 3))}</div>
+              <div><span>診斷</span>${missed ? "有賺變虧" : "無特殊標記"}</div>
+            </div>
+          </article>
+        `;
+      };
+
+      if (tableBody) {
+        tableBody.innerHTML = filtered.length
+          ? filtered.map(rowHtml).join("")
+          : `<tr><td colspan="16">目前沒有符合篩選條件的訊號紀錄</td></tr>`;
+      }
+      if (cardList) {
+        cardList.innerHTML = filtered.length
+          ? filtered.map(cardHtml).join("")
+          : `<div class="empty">目前沒有符合篩選條件的訊號紀錄</div>`;
+      }
+    }
+
+    function updateSignalRecordFilters() {
+      signalRecordFilters = {
+        symbol: document.querySelector("#signalFilterSymbol")?.value || "",
+        direction: document.querySelector("#signalFilterDirection")?.value || "",
+        level: document.querySelector("#signalFilterLevel")?.value || "",
+        outcome: document.querySelector("#signalFilterOutcome")?.value || "",
+        missedProfit: Boolean(document.querySelector("#signalFilterMissedProfit")?.checked)
+      };
+      renderSignalRecordViews(latestSignalRecords);
+    }
+
     function setSignalStatsLoading(loading) {
       signalStatsLoading = loading;
       const refreshButton = document.querySelector("#refreshSignalStatsBtn");
@@ -2335,7 +2843,9 @@
       if (limitSelect) limitSelect.disabled = loading;
       if (loading) {
         document.querySelector("#signalStatsStatus").textContent = "載入中...";
+        document.querySelector("#signalApiStatus").textContent = "讀取中";
         document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="16">正在載入訊號紀錄...</td></tr>`;
+        document.querySelector("#signalRecordCards").innerHTML = `<div class="empty">正在載入訊號紀錄...</div>`;
       }
       renderSignalPagination(signalStatsPagination);
     }
@@ -2343,6 +2853,8 @@
     function renderSignalStats(payload) {
       const stats = payload?.stats || {};
       const recentSignals = Array.isArray(payload?.recentSignals) ? payload.recentSignals : [];
+      latestSignalStats = stats;
+      latestSignalRecords = recentSignals;
       const pagination = payload?.pagination || {
         page: 1,
         limit: signalStatsLimit,
@@ -2358,31 +2870,17 @@
       document.querySelector("#signalSetupRates").innerHTML = `回踩單 ${bucketRate(stats.bySetupType?.pullback)}<br>突破單 ${bucketRate(stats.bySetupType?.breakout)}<br>早段突破 ${bucketRate(stats.bySetupType?.earlyBreakout)}`;
       document.querySelector("#signalOpenCount").textContent = stats.openSignals ?? 0;
       document.querySelector("#signalTotalPnl").textContent = Number.isFinite(Number(stats.totalPnlR)) ? `${number(Number(stats.totalPnlR), 2)} R` : "-";
-      document.querySelector("#signalOutcomes").innerHTML = `止盈1 ${stats.tp1Hits ?? 0}<br>止盈2 ${stats.tp2Hits ?? 0}<br>止盈3 ${stats.tp3Hits ?? 0}<br>止損 ${stats.slHits ?? 0}<br>逾時 ${stats.expired ?? 0}`;
+      document.querySelector("#signalOutcomes").innerHTML = `TP1 ${stats.tp1Hits ?? 0}<br>TP2 ${stats.tp2Hits ?? 0}<br>TP3 ${stats.tp3Hits ?? 0}`;
+      document.querySelector("#signalStopLossCount").textContent = stats.slHits ?? 0;
+      document.querySelector("#signalExpiredCount").textContent = stats.expired ?? 0;
+      document.querySelector("#signalMissedProfitCount").textContent = recentSignals.filter(isMissedProfit).length;
       document.querySelector("#signalTp3Rate").textContent = percentText(Number(stats.tp3HitRate));
       document.querySelector("#signalAverageMaxR").textContent = rText(stats.averageMaxR);
-      document.querySelector("#signalRecords").innerHTML = recentSignals.length
-        ? recentSignals.map((record) => `
-          <tr>
-            <td>${record.createdAt ? new Date(record.createdAt).toLocaleString("zh-TW", { hour12: false }) : "-"}</td>
-            <td>${record.symbol || "-"}</td>
-            <td>${directionLabel(record)}</td>
-            <td>${record.signalLevel || "-"}</td>
-            <td>${formatSetupTypeLabel(record.setupType)}</td>
-            <td>${priceNumber(Number(record.entry))}</td>
-            <td>${priceNumber(Number(record.stop))}</td>
-            <td>${priceNumber(Number(record.tp1))}</td>
-            <td>${priceNumber(Number(record.tp2))}</td>
-            <td>${priceNumber(Number(record.tp3))}</td>
-            <td>${yesNo(recordTargetReached(record, 1))}</td>
-            <td>${yesNo(recordTargetReached(record, 2))}</td>
-            <td>${yesNo(recordTargetReached(record, 3))}</td>
-            <td>${rText(record.maxReachedR)}</td>
-            <td>${rText(record.finalR)}</td>
-            <td>${signalOutcomeLabel(record)}</td>
-          </tr>
-        `).join("")
-        : `<tr><td colspan="16">目前沒有訊號紀錄</td></tr>`;
+      document.querySelector("#signalDiagnostics").innerHTML = buildSignalDiagnostics(stats, recentSignals);
+      document.querySelector("#signalApiStatus").textContent = "正常";
+      document.querySelector("#signalLastUpdated").textContent = new Date().toLocaleString("zh-TW", { hour12: false });
+      document.querySelector("#signalCurrentPage").textContent = `第 ${pagination.page || 1} / ${pagination.totalPages || 1} 頁`;
+      renderSignalRecordViews(recentSignals);
       renderSignalPagination(pagination);
       document.querySelector("#signalStatsStatus").textContent = pagination.total
         ? `最後更新：${new Date().toLocaleString("zh-TW", { hour12: false })}`
@@ -2402,7 +2900,9 @@
       } catch (error) {
         if (error.name === "AbortError" || requestId !== signalStatsRequestSequence) return;
         document.querySelector("#signalStatsStatus").textContent = `API 錯誤：${error.message || "訊號統計讀取失敗"}`;
+        document.querySelector("#signalApiStatus").textContent = "錯誤";
         document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="16">API 錯誤，無法載入訊號紀錄</td></tr>`;
+        document.querySelector("#signalRecordCards").innerHTML = `<div class="empty">API 錯誤，無法載入訊號紀錄</div>`;
       } finally {
         if (requestId === signalStatsRequestSequence) {
           setSignalStatsLoading(false);
@@ -3365,6 +3865,9 @@
     document.querySelector("#refreshSignalStatsBtn")?.addEventListener("click", () => refreshSignalStats(signalStatsPage));
     document.querySelector("#clearSignalStatsBtn")?.addEventListener("click", clearSignalStats);
     document.querySelector("#snapshotSearchBtn")?.addEventListener("click", searchSignalSnapshots);
+    ["signalFilterSymbol", "signalFilterDirection", "signalFilterLevel", "signalFilterOutcome", "signalFilterMissedProfit"].forEach((id) => {
+      document.querySelector("#" + id)?.addEventListener("change", updateSignalRecordFilters);
+    });
     document.querySelector("#signalPageLimit")?.addEventListener("change", (event) => {
       const nextLimit = Number(event.target.value);
       if (![20, 50, 100].includes(nextLimit) || signalStatsLoading) return;
