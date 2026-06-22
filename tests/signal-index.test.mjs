@@ -13,9 +13,13 @@ globalThis.signalIndexTestHooks = {
   dynamicTradePlanMetrics,
   handleClearSignals,
   handleSignalStats,
+  handleSignalSnapshots,
+  rebuildSignalStats,
   recordSignalSnapshot,
   resolveSignalRecord,
+  shouldPersistSignalRecordUpdate,
   scoreAdvancedAnalysisV2,
+  updateOpenSignalRecords,
   recordSignalIfEligible
 };
 `);
@@ -37,9 +41,13 @@ const {
   dynamicTradePlanMetrics,
   handleClearSignals,
   handleSignalStats,
+  handleSignalSnapshots,
+  rebuildSignalStats,
   recordSignalSnapshot,
   resolveSignalRecord,
+  shouldPersistSignalRecordUpdate,
   scoreAdvancedAnalysisV2,
+  updateOpenSignalRecords,
   recordSignalIfEligible
 } = context.signalIndexTestHooks;
 
@@ -385,6 +393,44 @@ test("OPEN record upgrade keeps initial level and original trade plan unchanged"
   assert.deepEqual(saved.warnings, ["initial warning", "upgrade warning"]);
 });
 
+test("recordSignalIfEligible can defer stats rebuild", async () => {
+  const kv = createKv({ records: [], stats: statsCache(0) });
+  const result = await recordSignalIfEligible({ SIGNAL_KV: kv }, upgradeAnalysis(), { rebuildStats: false });
+
+  assert.ok(result);
+  assert.equal(kv.calls.put.includes("signal:stats"), false);
+  assert.equal(kv.calls.put.filter((key) => key.startsWith("signal:BTC-USDT")).length, 1);
+  assert.equal(kv.calls.put.includes("signal:index"), true);
+  assert.equal(kv.calls.put.includes("signal:index:version"), true);
+});
+
+test("recordSignalIfEligible defers stats rebuild on OPEN upgrade", async () => {
+  const original = openRecord();
+  const kv = createKv({ records: [original], stats: statsCache(1) });
+  const result = await recordSignalIfEligible({ SIGNAL_KV: kv }, upgradeAnalysis(), { rebuildStats: false });
+
+  assert.ok(result);
+  assert.equal(result.currentSignalLevel, "S");
+  assert.deepEqual(kv.calls.put, [`signal:${original.id}`]);
+});
+
+test("scheduled-style deferred recording rebuilds stats once for multiple new records", async () => {
+  const kv = createKv({ records: [], stats: statsCache(0) });
+  const first = upgradeAnalysis();
+  const second = {
+    ...upgradeAnalysis(),
+    symbol: "ETH-USDT",
+    setupType: "breakout"
+  };
+
+  await recordSignalIfEligible({ SIGNAL_KV: kv }, first, { rebuildStats: false });
+  await recordSignalIfEligible({ SIGNAL_KV: kv }, second, { rebuildStats: false });
+  assert.equal(kv.calls.put.filter((key) => key === "signal:stats").length, 0);
+
+  await rebuildSignalStats({ SIGNAL_KV: kv });
+  assert.equal(kv.calls.put.filter((key) => key === "signal:stats").length, 1);
+});
+
 test("byLevel stats bucket uses initialSignalLevel instead of current upgrade level", () => {
   const upgraded = {
     ...openRecord(),
@@ -482,6 +528,69 @@ test("backtest counts stop first and does not count same-bar TP", () => {
   assert.equal(result.tp3Hit, false);
   assert.equal(result.maxReachedR, 0);
   assert.equal(result.finalR, -1);
+});
+
+test("open signal progress without target hit does not write KV", async () => {
+  const original = openRecord();
+  const kv = createKv({ records: [original] });
+  const updated = await updateOpenSignalRecords({ SIGNAL_KV: kv }, original.symbol, [
+    { time: original.createdAtBarTime + 1, high: 102.5, low: 99.5, close: 101.5 }
+  ]);
+  const saved = JSON.parse(kv.values.get(`signal:${original.id}`));
+
+  assert.equal(updated.length, 0);
+  assert.equal(kv.calls.put.length, 0);
+  assert.equal(saved.barsHeld, original.barsHeld);
+  assert.equal(saved.maxReachedR, original.maxReachedR);
+  assert.equal(shouldPersistSignalRecordUpdate(original, { ...original, barsHeld: 1, maxReachedR: 1.25 }), false);
+});
+
+test("open signal writes KV only when TP or closing event changes", async () => {
+  const cases = [
+    {
+      name: "TP1",
+      bars: (record) => [{ time: record.createdAtBarTime + 1, high: 103.1, low: 100, close: 102 }],
+      expected: { status: "OPEN", tp1Hit: true }
+    },
+    {
+      name: "TP2",
+      bars: (record) => [{ time: record.createdAtBarTime + 1, high: 104.1, low: 100, close: 103 }],
+      expected: { status: "OPEN", tp1Hit: true, tp2Hit: true }
+    },
+    {
+      name: "TP3",
+      bars: (record) => [{ time: record.createdAtBarTime + 1, high: 105.1, low: 100, close: 105 }],
+      expected: { status: "CLOSED", outcome: "TP3_HIT", tp1Hit: true, tp2Hit: true, tp3Hit: true }
+    },
+    {
+      name: "SL",
+      bars: (record) => [{ time: record.createdAtBarTime + 1, high: 101, low: 97.9, close: 98 }],
+      expected: { status: "CLOSED", outcome: "SL_HIT" }
+    },
+    {
+      name: "EXPIRED",
+      bars: (record) => Array.from({ length: 48 }, (_, index) => ({
+        time: record.createdAtBarTime + index + 1,
+        high: 102.5,
+        low: 99.5,
+        close: 100.5
+      })),
+      expected: { status: "CLOSED", outcome: "EXPIRED" }
+    }
+  ];
+
+  for (const item of cases) {
+    const original = openRecord();
+    const kv = createKv({ records: [original] });
+    const updated = await updateOpenSignalRecords({ SIGNAL_KV: kv }, original.symbol, item.bars(original));
+    const saved = JSON.parse(kv.values.get(`signal:${original.id}`));
+
+    assert.equal(updated.length, 1, item.name);
+    assert.deepEqual(kv.calls.put, [`signal:${original.id}`], item.name);
+    for (const [key, value] of Object.entries(item.expected)) {
+      assert.equal(saved[key], value, `${item.name} ${key}`);
+    }
+  }
 });
 
 test("stats include TP3 reached rate, average max R, and final R total", () => {
@@ -629,9 +738,8 @@ test("admin clear endpoint requires confirm=YES before deleting", async () => {
   assert.equal([...kv.values.keys()].some((key) => key.startsWith("signal:")), true);
 });
 
-test("snapshot is recorded even when signalLevel is D", async () => {
-  const kv = createKv({ records: [] });
-  const snapshot = await recordSignalSnapshot({ SIGNAL_KV: kv }, {
+function snapshotAnalysis() {
+  return {
     symbol: "SOL-USDT",
     direction: null,
     setupType: "none",
@@ -652,7 +760,33 @@ test("snapshot is recorded even when signalLevel is D", async () => {
     tp1: 103,
     tp2: 104,
     tp3: 105
+  };
+}
+
+test("signal snapshots are disabled by default and do not write KV", async () => {
+  const kv = createKv({ records: [] });
+  const snapshot = await recordSignalSnapshot({ SIGNAL_KV: kv }, snapshotAnalysis());
+  const response = await handleSignalSnapshots(
+    { SIGNAL_KV: kv },
+    new URL("https://worker.example/signals/snapshots")
+  );
+  const payload = await response.json();
+
+  assert.equal(snapshot, null);
+  assert.deepEqual(kv.calls.put, []);
+  assert.deepEqual(payload, {
+    snapshots: [],
+    disabled: true,
+    message: "Signal snapshots are disabled to reduce KV writes."
   });
+});
+
+test("snapshot is recorded even when signalLevel is D when explicitly enabled", async () => {
+  const kv = createKv({ records: [] });
+  const snapshot = await recordSignalSnapshot(
+    { SIGNAL_KV: kv, ENABLE_SIGNAL_SNAPSHOTS: "true" },
+    snapshotAnalysis()
+  );
   const index = JSON.parse(kv.values.get("signal:snapshots:index"));
   const saved = JSON.parse(kv.values.get(`signal:snapshot:${snapshot.id}`));
 
@@ -660,4 +794,8 @@ test("snapshot is recorded even when signalLevel is D", async () => {
   assert.equal(index.includes(snapshot.id), true);
   assert.equal(saved.symbol, "SOL-USDT");
   assert.equal(saved.signalLevel, "D");
+  assert.deepEqual(kv.calls.put.sort(), [
+    "signal:snapshot:" + snapshot.id,
+    "signal:snapshots:index"
+  ].sort());
 });

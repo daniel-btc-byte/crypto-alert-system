@@ -950,6 +950,10 @@ function buildSignalSnapshot(analysis, createdAt = Date.now()) {
   };
 }
 
+function signalSnapshotsEnabled(env) {
+  return String(env?.ENABLE_SIGNAL_SNAPSHOTS || "").toLowerCase() === "true";
+}
+
 async function readSignalSnapshotIndex(env) {
   if (!env.SIGNAL_KV) return [];
   const index = await env.SIGNAL_KV.get(SIGNAL_SNAPSHOT_INDEX_KEY, { type: "json" }).catch(() => null);
@@ -967,7 +971,7 @@ async function readSignalSnapshot(env, id) {
 }
 
 async function recordSignalSnapshot(env, analysis) {
-  if (!env.SIGNAL_KV || !analysis || analysis.error) return null;
+  if (!env.SIGNAL_KV || !signalSnapshotsEnabled(env) || !analysis || analysis.error) return null;
   const now = Date.now();
   const snapshot = buildSignalSnapshot(analysis, now);
   const cutoff = now - SIGNAL_SNAPSHOT_RETENTION_MS;
@@ -1205,13 +1209,33 @@ function resolveSignalRecord(record, klines15m) {
   return { ...state, barsHeld: bars.length };
 }
 
+function shouldPersistSignalRecordUpdate(previous, next) {
+  if (!previous || !next) return false;
+
+  const previousStatus = previous.status || previous.result || "OPEN";
+  const nextStatus = next.status || next.result || "OPEN";
+
+  if (previousStatus !== nextStatus) return true;
+  if ((previous.outcome || null) !== (next.outcome || null)) return true;
+
+  if (Boolean(previous.tp1Hit) !== Boolean(next.tp1Hit)) return true;
+  if (Boolean(previous.tp2Hit) !== Boolean(next.tp2Hit)) return true;
+  if (Boolean(previous.tp3Hit) !== Boolean(next.tp3Hit)) return true;
+
+  const previousFinalR = Number(previous.finalR);
+  const nextFinalR = Number(next.finalR);
+  if (Number.isFinite(nextFinalR) && previousFinalR !== nextFinalR) return true;
+
+  return false;
+}
+
 async function updateOpenSignalRecords(env, symbol, klines15m) {
   if (!env.SIGNAL_KV) return [];
   const records = await recentSignalRecords(env);
   const updated = [];
   for (const record of records.filter((item) => item.symbol === symbol && (item.status === "OPEN" || item.result === "OPEN"))) {
     const next = resolveSignalRecord(record, klines15m);
-    if (next !== record) {
+    if (shouldPersistSignalRecordUpdate(record, next)) {
       await writeSignalRecord(env, next);
       updated.push(next);
     }
@@ -1219,8 +1243,9 @@ async function updateOpenSignalRecords(env, symbol, klines15m) {
   return updated;
 }
 
-async function recordSignalIfEligible(env, analysis) {
+async function recordSignalIfEligible(env, analysis, options = {}) {
   if (!env.SIGNAL_KV || !isValidBacktestSignal(analysis) || !hasValidTradePlan(analysis)) return null;
+  const shouldRebuildStats = options.rebuildStats !== false;
   const index = await ensureCompleteSignalIndex(env);
   const records = await recentSignalRecords(env);
   const matchingOpen = records.find((record) => (record.status === "OPEN" || record.result === "OPEN")
@@ -1239,7 +1264,7 @@ async function recordSignalIfEligible(env, analysis) {
         warnings: Array.from(new Set([...(matchingOpen.warnings || []), ...(analysis.warnings || [])]))
       };
       await writeSignalRecord(env, upgraded);
-      await rebuildSignalStats(env);
+      if (shouldRebuildStats) await rebuildSignalStats(env);
       return upgraded;
     }
     return null;
@@ -1248,7 +1273,7 @@ async function recordSignalIfEligible(env, analysis) {
   const record = buildSignalRecord(analysis);
   await writeSignalRecord(env, record);
   await writeSignalIndex(env, [record.id, ...index.filter((id) => id !== record.id)]);
-  await rebuildSignalStats(env);
+  if (shouldRebuildStats) await rebuildSignalStats(env);
   return record;
 }
 
@@ -1392,6 +1417,13 @@ async function handleSignalStats(env, requestUrl) {
 }
 
 async function handleSignalSnapshots(env, requestUrl) {
+  if (!signalSnapshotsEnabled(env)) {
+    return json({
+      snapshots: [],
+      disabled: true,
+      message: "Signal snapshots are disabled to reduce KV writes."
+    });
+  }
   if (!env.SIGNAL_KV) return json({ snapshots: [] });
   const symbol = String(requestUrl.searchParams.get("symbol") || "").trim().toUpperCase();
   const setupType = String(requestUrl.searchParams.get("setupType") || "").trim();
@@ -1605,14 +1637,18 @@ async function scanSymbol(symbol, env = {}) {
 
 async function runScheduledScan(env) {
   console.log("[scheduled] start");
+  let statsDirty = false;
   for (const symbol of SCAN_SYMBOLS) {
     try {
       const analysis = await scanSymbol(symbol, env);
       if (analysis.error) continue;
-      await recordSignalSnapshot(env, analysis);
+      if (signalSnapshotsEnabled(env)) {
+        await recordSignalSnapshot(env, analysis);
+      }
       const resolvedSignals = await updateOpenSignalRecords(env, symbol, analysis.latestKlines15m || []);
-      if (resolvedSignals.length) await rebuildSignalStats(env);
-      await recordSignalIfEligible(env, analysis);
+      if (resolvedSignals.length) statsDirty = true;
+      const recordedSignal = await recordSignalIfEligible(env, analysis, { rebuildStats: false });
+      if (recordedSignal) statsDirty = true;
       const decision = await shouldNotify(analysis, env);
       const sideText = analysis.direction === "long" ? "做多" : analysis.direction === "short" ? "做空" : "";
       const finalText = analysis.signalLevel === "D" ? "不交易" : `${analysis.signalLevel}級${sideText}`;
@@ -1631,6 +1667,7 @@ async function runScheduledScan(env) {
       console.log(`${symbol} fetch failed`);
     }
   }
+  if (statsDirty) await rebuildSignalStats(env);
 }
 
 export default {
