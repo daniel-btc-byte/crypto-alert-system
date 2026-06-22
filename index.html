@@ -309,6 +309,26 @@
       justify-self: center;
     }
 
+    .decision.decision-long {
+      border-color: rgba(14, 203, 129, .48);
+      background: linear-gradient(180deg, rgba(14, 203, 129, .16), rgba(255, 255, 255, .04));
+    }
+
+    .decision.decision-short {
+      border-color: rgba(246, 70, 93, .5);
+      background: linear-gradient(180deg, rgba(246, 70, 93, .16), rgba(255, 255, 255, .04));
+    }
+
+    .decision.decision-wait {
+      border-color: rgba(240, 185, 11, .46);
+      background: linear-gradient(180deg, rgba(240, 185, 11, .14), rgba(255, 255, 255, .04));
+    }
+
+    .decision.decision-muted {
+      border-color: rgba(143, 153, 166, .28);
+      background: var(--panel-strong);
+    }
+
     .decision span,
     .signal-card span,
     .condition-box span {
@@ -377,6 +397,10 @@
       min-width: 0;
     }
 
+    .decision-summary-card.wide {
+      grid-column: span 2;
+    }
+
     .condition-box {
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -438,6 +462,60 @@
       color: var(--muted);
       font-size: 12px;
       font-weight: 500;
+    }
+
+    .collapsible-panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .02);
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .collapsible-panel.soft {
+      background: var(--panel-soft);
+    }
+
+    .collapsible-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .collapsible-title {
+      margin: 0;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .collapsible-subtitle {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .collapsible-toggle {
+      flex: 0 0 auto;
+      min-height: 34px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+
+    .collapsible-content.collapsed {
+      display: none;
+    }
+
+    .advanced-settings {
+      grid-column: 1 / -1;
+    }
+
+    .technical-details {
+      order: 9;
     }
 
     .signal-stats-panel {
@@ -590,7 +668,7 @@
 
     .signal-records-table {
       width: 100%;
-      min-width: 1180px;
+      min-width: 860px;
       border-collapse: collapse;
       font-size: 13px;
     }
@@ -636,6 +714,12 @@
       font-size: 12px;
       font-weight: 800;
       white-space: nowrap;
+    }
+
+    .result-badge,
+    .direction-badge,
+    .level-badge {
+      letter-spacing: .01em;
     }
 
     .badge.long,
@@ -692,13 +776,77 @@
       font-weight: 800;
     }
 
+    .r-positive {
+      color: var(--green);
+      font-weight: 800;
+    }
+
     .r-value.danger {
+      color: var(--red);
+      font-weight: 800;
+    }
+
+    .r-negative {
       color: var(--red);
       font-weight: 800;
     }
 
     .r-value.muted {
       color: var(--muted);
+    }
+
+    .r-muted {
+      color: var(--muted);
+    }
+
+    .missed-profit-chip {
+      display: inline-flex;
+      margin-left: 6px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(240, 185, 11, .42);
+      color: var(--amber);
+      background: rgba(240, 185, 11, .1);
+      font-size: 11px;
+      font-weight: 800;
+      vertical-align: middle;
+    }
+
+    .record-detail-toggle {
+      min-height: 30px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+    }
+
+    .record-detail-row.hide {
+      display: none;
+    }
+
+    .record-detail-row td {
+      background: rgba(255, 255, 255, .025);
+      white-space: normal;
+    }
+
+    .record-detail-panel {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 4px 0;
+    }
+
+    .record-detail-panel div {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(255, 255, 255, .03);
+    }
+
+    .record-detail-panel span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 4px;
     }
 
     .signal-record-cards {
@@ -711,6 +859,11 @@
       border-radius: 16px;
       padding: 12px;
       background: var(--panel-soft);
+    }
+
+    .mobile-record-card {
+      display: grid;
+      gap: 10px;
     }
 
     .signal-record-card.missed-profit-row {
@@ -748,6 +901,25 @@
       display: block;
       font-size: 11px;
       margin-bottom: 2px;
+    }
+
+    .mobile-record-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .mobile-record-detail summary {
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: 800;
+      margin-top: 2px;
+    }
+
+    .slippage-replay-panel {
+      opacity: .9;
     }
 
     .signal-pagination {
@@ -1262,7 +1434,7 @@
         grid-column: 1 / -1;
       }
 
-      .signal-records-wrap {
+      .backtest-records-wrap {
         display: none;
       }
 
@@ -1364,10 +1536,6 @@
             <label>K 線來源</label>
             <input id="klineSource" type="text" value="🟢 BingX Futures Kline" readonly>
           </div>
-          <div class="field full">
-            <label>BingX Symbol Debug</label>
-            <div class="note-line" id="symbolDebug">使用交易所：BingX｜使用 symbol：BTC-USDT｜原始顯示 symbol：BINGX:BTCUSDT.P</div>
-          </div>
           <section class="market-group" aria-label="大方向">
             <h3 class="market-group-title">大方向</h3>
             <div class="market-group-grid">
@@ -1417,6 +1585,18 @@
                 <label for="tp3R">TP3 R 倍數</label>
                 <input id="tp3R" type="number" min="0.1" step="0.1" value="2.5">
               </div>
+            </div>
+          </section>
+          <section class="advanced-settings collapsible-panel soft">
+            <div class="collapsible-head">
+              <div>
+                <h3 class="collapsible-title">⚙️ 進階設定</h3>
+                <p class="collapsible-subtitle">日常看盤通常不用調整；需要改 API、模式或風控門檻時再展開。</p>
+              </div>
+              <button class="btn collapsible-toggle" id="advancedSettingsToggle" type="button">展開</button>
+            </div>
+            <div class="collapsible-content collapsed" id="advancedSettingsContent">
+              <div class="market-group-grid">
               <div class="field">
                 <label for="bingxApiProxyUrl">BingX API Proxy URL</label>
                 <input id="bingxApiProxyUrl" type="url" placeholder="https://xxxx.workers.dev">
@@ -1431,22 +1611,27 @@
               <div class="field"><label for="ma30LimitSol">SOL MA30 最大偏離 (%)</label><input id="ma30LimitSol" type="number" min="0" step="0.1" value="2"></div>
               <div class="field"><label for="ma30LimitXrp">XRP MA30 最大偏離 (%)</label><input id="ma30LimitXrp" type="number" min="0" step="0.1" value="2"></div>
               <div class="field"><label for="ma30LimitDoge">DOGE MA30 最大偏離 (%)</label><input id="ma30LimitDoge" type="number" min="0" step="0.1" value="2"></div>
+                <div class="field">
+                  <label for="trendMode">大方向模式</label>
+                  <select id="trendMode">
+                    <option value="trend">順勢模式</option>
+                    <option value="counter">逆勢模式</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="entryMode">進場模式</label>
+                  <select id="entryMode">
+                    <option value="aggressive">積極模式</option>
+                    <option value="conservative">保守模式</option>
+                  </select>
+                </div>
+                <div class="field full">
+                  <label>BingX Symbol Debug</label>
+                  <div class="note-line" id="symbolDebug">使用交易所：BingX｜使用 symbol：BTC-USDT｜原始顯示 symbol：BINGX:BTCUSDT.P</div>
+                </div>
+              </div>
             </div>
           </section>
-          <div class="field">
-            <label for="trendMode">大方向模式</label>
-            <select id="trendMode">
-              <option value="trend">順勢模式</option>
-              <option value="counter">逆勢模式</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="entryMode">進場模式</label>
-            <select id="entryMode">
-              <option value="aggressive">積極模式</option>
-              <option value="conservative">保守模式</option>
-            </select>
-          </div>
         </div>
       </form>
 
@@ -1481,41 +1666,53 @@
         <div class="decision-summary-card"><span>主要原因</span><strong id="quickReason">-</strong></div>
         <div class="decision-summary-card"><span>Telegram 通知</span><strong id="quickTelegram">-</strong></div>
         <div class="decision-summary-card"><span>進場型態</span><strong id="quickSetupType">-</strong></div>
+        <div class="decision-summary-card wide"><span>風險提醒</span><strong id="quickRiskWarnings">-</strong></div>
       </div>
 
-      <div class="signal-grid">
-        <div class="signal-card"><span>4H 趨勢</span><strong id="bias4h">資料不足</strong></div>
-        <div class="signal-card"><span>15m 趨勢</span><strong id="bias15m">資料不足</strong></div>
-        <div class="signal-card"><span>MA5 / MA10</span><strong id="maBias">資料不足</strong></div>
-        <div class="signal-card"><span>4H MA200</span><strong id="ma200Value">資料不足</strong></div>
-        <div class="signal-card"><span>MA200 狀態</span><strong id="ma200Trend">資料不足</strong></div>
-        <div class="signal-card"><span>距離 4H MA200</span><strong id="ma200Distance">資料不足</strong></div>
-      </div>
-      <div class="note-line" id="ma200Warning"></div>
-
-      <div class="analysis-grid" aria-label="分析結果">
-        <div class="analysis-card"><span>Volume Ratio</span><strong id="volumeStatus">資料不足</strong></div>
-        <div class="analysis-card"><span>ATR</span><strong id="atrStatus">資料不足</strong></div>
-        <div class="analysis-card"><span>MACD</span><strong id="macdStatus">資料不足</strong></div>
-        <div class="analysis-card"><span>分數 / 訊號等級</span><strong id="entryQuality">資料不足</strong></div>
-        <div class="analysis-card"><span>最終判斷</span><strong id="finalSignal"><span class="signal-icon"></span>資料不足</strong></div>
-        <div class="analysis-card"><span>風險提醒</span><strong id="riskWarnings">資料不足</strong></div>
-        <div class="analysis-card wide"><span>交易建議</span><strong id="tradePlan">資料不足</strong></div>
-        <div class="analysis-card wide"><span>版本</span><strong id="analysisStatus">資料不足，無法完成分析</strong></div>
-      </div>
-
-      <div class="condition-grid">
-        <div class="condition-box">
-          <span>做多條件</span>
-          <strong id="longScore">0 / 4</strong>
-          <div class="condition-list" id="longConditions"></div>
+      <section class="collapsible-panel technical-details" aria-label="技術細節">
+        <div class="collapsible-head">
+          <div>
+            <h3 class="collapsible-title">技術細節</h3>
+            <p class="collapsible-subtitle">MA、Volume、ATR、MACD 與條件分解；預設收起，避免主畫面變成 debug 牆。</p>
+          </div>
+          <button class="btn collapsible-toggle" id="technicalDetailsToggle" type="button">展開</button>
         </div>
-        <div class="condition-box">
-          <span>做空條件</span>
-          <strong id="shortScore">0 / 4</strong>
-          <div class="condition-list" id="shortConditions"></div>
+        <div class="collapsible-content collapsed" id="technicalDetailsContent">
+          <div class="signal-grid">
+            <div class="signal-card"><span>4H 趨勢</span><strong id="bias4h">資料不足</strong></div>
+            <div class="signal-card"><span>15m 趨勢</span><strong id="bias15m">資料不足</strong></div>
+            <div class="signal-card"><span>MA5 / MA10</span><strong id="maBias">資料不足</strong></div>
+            <div class="signal-card"><span>4H MA200</span><strong id="ma200Value">資料不足</strong></div>
+            <div class="signal-card"><span>MA200 狀態</span><strong id="ma200Trend">資料不足</strong></div>
+            <div class="signal-card"><span>距離 4H MA200</span><strong id="ma200Distance">資料不足</strong></div>
+          </div>
+          <div class="note-line" id="ma200Warning"></div>
+
+          <div class="analysis-grid" aria-label="分析結果">
+            <div class="analysis-card"><span>Volume Ratio</span><strong id="volumeStatus">資料不足</strong></div>
+            <div class="analysis-card"><span>ATR</span><strong id="atrStatus">資料不足</strong></div>
+            <div class="analysis-card"><span>MACD</span><strong id="macdStatus">資料不足</strong></div>
+            <div class="analysis-card"><span>分數 / 訊號等級</span><strong id="entryQuality">資料不足</strong></div>
+            <div class="analysis-card"><span>最終判斷</span><strong id="finalSignal"><span class="signal-icon"></span>資料不足</strong></div>
+            <div class="analysis-card"><span>風險提醒</span><strong id="riskWarnings">資料不足</strong></div>
+            <div class="analysis-card wide"><span>交易建議</span><strong id="tradePlan">資料不足</strong></div>
+            <div class="analysis-card wide"><span>版本</span><strong id="analysisStatus">資料不足，無法完成分析</strong></div>
+          </div>
+
+          <div class="condition-grid">
+            <div class="condition-box">
+              <span>做多條件</span>
+              <strong id="longScore">0 / 4</strong>
+              <div class="condition-list" id="longConditions"></div>
+            </div>
+            <div class="condition-box">
+              <span>做空條件</span>
+              <strong id="shortScore">0 / 4</strong>
+              <div class="condition-list" id="shortConditions"></div>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
       </section>
     </section>
 
@@ -1616,26 +1813,19 @@
         </label>
       </div>
       <div class="signal-filter-summary" id="signalFilterSummary">目前顯示 0 / 本頁 0 筆</div>
-      <div class="signal-records-wrap">
+      <div class="signal-records-wrap backtest-records-wrap">
         <table class="signal-records-table">
           <thead>
             <tr>
+              <th>結果</th>
               <th>時間</th>
               <th>幣種</th>
               <th>方向</th>
               <th>等級</th>
               <th>型態</th>
-              <th>進場</th>
-              <th>止損</th>
-              <th>止盈1</th>
-              <th>止盈2</th>
-              <th>止盈3</th>
-              <th>TP1 達標</th>
-              <th>TP2 達標</th>
-              <th>TP3 達標</th>
               <th>最大 R</th>
               <th>最終 R</th>
-              <th>結果</th>
+              <th>詳細</th>
             </tr>
           </thead>
           <tbody id="signalRecords"></tbody>
@@ -1659,59 +1849,64 @@
       </div>
     </section>
 
-    <section class="panel signal-stats-panel" aria-label="漏單回查">
-      <div class="signal-stats-head">
+    <section class="panel signal-stats-panel slippage-replay-panel" aria-label="滑單回查">
+      <div class="collapsible-head">
         <div>
-          <h2>漏單回查</h2>
+          <h2>滑單回查</h2>
           <div class="note-line" id="snapshotSearchStatus">可用幣種 / 時間 / 型態 / 等級 / 阻擋原因篩選最近掃描快照。</div>
         </div>
-        <button class="btn" id="snapshotSearchBtn" type="button">查詢掃描快照</button>
+        <button class="btn collapsible-toggle" id="slippageReplayToggle" type="button">展開</button>
       </div>
-      <div class="missed-signal-filters">
-        <div class="field"><label for="snapshotSymbol">幣種</label><input id="snapshotSymbol" type="text" placeholder="SOL-USDT"></div>
-        <div class="field"><label for="snapshotFrom">起始時間</label><input id="snapshotFrom" type="datetime-local"></div>
-        <div class="field"><label for="snapshotTo">結束時間</label><input id="snapshotTo" type="datetime-local"></div>
-        <div class="field">
-          <label for="snapshotSetupType">型態</label>
-          <select id="snapshotSetupType">
-            <option value="">全部</option>
-            <option value="pullback">回踩單</option>
-            <option value="breakout">突破單</option>
-            <option value="earlyBreakout">早段突破</option>
-            <option value="none">未確認</option>
-          </select>
+      <div class="collapsible-content collapsed" id="slippageReplayContent">
+        <div class="signal-stats-actions" style="justify-content:flex-start;margin-bottom:10px;">
+          <button class="btn" id="snapshotSearchBtn" type="button">查詢掃描快照</button>
         </div>
-        <div class="field">
-          <label for="snapshotSignalLevel">等級</label>
-          <select id="snapshotSignalLevel">
-            <option value="">全部</option>
-            <option value="S+">S+</option>
-            <option value="S">S</option>
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-            <option value="D">D</option>
-          </select>
+        <div class="missed-signal-filters">
+          <div class="field"><label for="snapshotSymbol">幣種</label><input id="snapshotSymbol" type="text" placeholder="SOL-USDT"></div>
+          <div class="field"><label for="snapshotFrom">起始時間</label><input id="snapshotFrom" type="datetime-local"></div>
+          <div class="field"><label for="snapshotTo">結束時間</label><input id="snapshotTo" type="datetime-local"></div>
+          <div class="field">
+            <label for="snapshotSetupType">型態</label>
+            <select id="snapshotSetupType">
+              <option value="">全部</option>
+              <option value="pullback">回踩單</option>
+              <option value="breakout">突破單</option>
+              <option value="earlyBreakout">早段突破</option>
+              <option value="none">未確認</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="snapshotSignalLevel">等級</label>
+            <select id="snapshotSignalLevel">
+              <option value="">全部</option>
+              <option value="S+">S+</option>
+              <option value="S">S</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+            </select>
+          </div>
+          <div class="field"><label for="snapshotHardBlock">阻擋原因</label><input id="snapshotHardBlock" type="text" placeholder="量能 / RSI"></div>
         </div>
-        <div class="field"><label for="snapshotHardBlock">阻擋原因</label><input id="snapshotHardBlock" type="text" placeholder="量能 / RSI"></div>
-      </div>
-      <div class="signal-records-wrap">
-        <table class="signal-records-table">
-          <thead>
-            <tr>
-              <th>時間</th>
-              <th>幣種</th>
-              <th>方向</th>
-              <th>型態</th>
-              <th>等級</th>
-              <th>總分</th>
-              <th>量能</th>
-              <th>RSI</th>
-              <th>阻擋原因</th>
-            </tr>
-          </thead>
-          <tbody id="snapshotRecords"></tbody>
-        </table>
+        <div class="signal-records-wrap">
+          <table class="signal-records-table">
+            <thead>
+              <tr>
+                <th>時間</th>
+                <th>幣種</th>
+                <th>方向</th>
+                <th>型態</th>
+                <th>等級</th>
+                <th>總分</th>
+                <th>量能</th>
+                <th>RSI</th>
+                <th>阻擋原因</th>
+              </tr>
+            </thead>
+            <tbody id="snapshotRecords"></tbody>
+          </table>
+        </div>
       </div>
     </section>
   </main>
@@ -1726,6 +1921,9 @@
     const tradeCooldownStorageKey = "trade-cooldown-until-v1";
     const marketStorageKeyBase = "btc-market-dashboard-v1";
     const layoutStorageKey = "btc-dashboard-layout-mode";
+    const advancedSettingsCollapsedKey = "advancedSettingsCollapsed";
+    const technicalDetailsCollapsedKey = "technicalDetailsCollapsed";
+    const slippageReplayCollapsedKey = "slippageReplayCollapsed";
     const autoUpdateIntervalSeconds = 5;
     let autoUpdateEnabled = true;
     let autoUpdateCountdown = autoUpdateIntervalSeconds;
@@ -1739,6 +1937,7 @@
     let latestSignalRecords = [];
     let latestSignalStats = {};
     let signalRecordFilters = { symbol: "", direction: "", level: "", outcome: "", missedProfit: false };
+    let expandedSignalRecordIds = new Set();
     let signalStatsPagination = {
       page: 1,
       limit: 50,
@@ -2012,6 +2211,30 @@
 
     function loadLayoutMode() {
       setLayoutMode(localStorage.getItem(layoutStorageKey) || "auto");
+    }
+
+    function readCollapsedState(storageKey, defaultValue = true) {
+      const stored = localStorage.getItem(storageKey);
+      if (stored === null) return defaultValue;
+      return stored !== "false";
+    }
+
+    function setCollapsibleState(contentSelector, buttonSelector, storageKey, collapsed) {
+      const content = document.querySelector(contentSelector);
+      const button = document.querySelector(buttonSelector);
+      if (content) content.classList.toggle("collapsed", collapsed);
+      if (button) button.textContent = collapsed ? "展開" : "收合";
+      localStorage.setItem(storageKey, collapsed ? "true" : "false");
+    }
+
+    function initCollapsible(buttonSelector, contentSelector, storageKey, defaultCollapsed = true) {
+      const collapsed = readCollapsedState(storageKey, defaultCollapsed);
+      setCollapsibleState(contentSelector, buttonSelector, storageKey, collapsed);
+      document.querySelector(buttonSelector)?.addEventListener("click", () => {
+        const content = document.querySelector(contentSelector);
+        const nextCollapsed = !content?.classList.contains("collapsed");
+        setCollapsibleState(contentSelector, buttonSelector, storageKey, nextCollapsed);
+      });
     }
 
     function number(value, digits = 2) {
@@ -2352,10 +2575,10 @@
     }
 
     function rClass(value) {
-      if (value === null || value === undefined || value === "") return "muted";
+      if (value === null || value === undefined || value === "") return "muted r-muted";
       const numeric = Number(value);
-      if (!Number.isFinite(numeric) || numeric === 0) return "muted";
-      return numeric > 0 ? "success" : "danger";
+      if (!Number.isFinite(numeric) || numeric === 0) return "muted r-muted";
+      return numeric > 0 ? "success r-positive" : "danger r-negative";
     }
 
     function rValueHtml(value) {
@@ -2371,13 +2594,13 @@
       const label = record?.direction === "long" ? "做多" : record?.direction === "short" ? "做空" : "-";
       const type = record?.direction === "long" ? "long" : record?.direction === "short" ? "short" : "neutral";
       const note = record?.provisionalDirection ? `<br><span class="muted">早段方向，尚未完全確認</span>` : "";
-      return `<span class="badge ${type}">${label}</span>${note}`;
+      return `<span class="badge direction-badge ${type}">${label}</span>${note}`;
     }
 
     function levelBadge(level) {
       const normalized = String(level || "-").toUpperCase();
       const className = normalized === "S+" ? "grade-splus" : normalized === "S" ? "grade-s" : normalized === "A" ? "grade-a" : normalized === "B" ? "grade-b" : "neutral";
-      return `<span class="badge ${className}">${normalized}</span>`;
+      return `<span class="badge level-badge ${className}">${normalized}</span>`;
     }
 
     function outcomeType(record) {
@@ -2393,7 +2616,15 @@
     function outcomeBadge(record) {
       const type = outcomeType(record);
       const className = type === "tp" ? "tp" : type === "sl" ? "sl" : type === "expired" ? "expired" : type === "open" ? "open" : "neutral";
-      return `<span class="badge ${className}">${signalOutcomeLabel(record)}</span>`;
+      const outcome = String(record?.outcome || "").toUpperCase();
+      const label = outcome === "TP3_HIT" ? "TP3"
+        : outcome === "TP2_HIT" ? "TP2"
+        : outcome === "TP1_HIT" ? "TP1"
+        : type === "sl" ? "止損"
+        : type === "expired" ? "逾時"
+        : type === "open" ? "進行中"
+        : "未知";
+      return `<span class="badge result-badge ${className}">${label}</span>`;
     }
 
     function isMissedProfit(record) {
@@ -2411,6 +2642,27 @@
         if (signalRecordFilters.missedProfit && !isMissedProfit(record)) return false;
         return true;
       });
+    }
+
+    function signalRecordStableId(record, index) {
+      return String(record?.id || record?.key || `${record?.symbol || "signal"}-${record?.createdAt || record?.createdAtBarTime || index}-${index}`);
+    }
+
+    function recordDetailPanel(record) {
+      return `
+        <div class="record-detail-panel">
+          <div><span>進場價</span>${priceNumber(Number(record.entry))}</div>
+          <div><span>止損</span>${priceNumber(Number(record.stop))}</div>
+          <div><span>TP1</span>${priceNumber(Number(record.tp1))}</div>
+          <div><span>TP2</span>${priceNumber(Number(record.tp2))}</div>
+          <div><span>TP3</span>${priceNumber(Number(record.tp3))}</div>
+          <div><span>TP1 達標</span>${targetIcon(recordTargetReached(record, 1))}</div>
+          <div><span>TP2 達標</span>${targetIcon(recordTargetReached(record, 2))}</div>
+          <div><span>TP3 達標</span>${targetIcon(recordTargetReached(record, 3))}</div>
+          <div><span>原始 finalR</span>${record.finalR ?? "-"}</div>
+          <div><span>原始 maxReachedR</span>${record.maxReachedR ?? "-"}</div>
+        </div>
+      `;
     }
 
     function buildSignalDiagnostics(stats, recentSignals) {
@@ -2563,26 +2815,24 @@
       const summary = document.querySelector("#signalFilterSummary");
       if (summary) summary.textContent = `目前顯示 ${filtered.length} / 本頁 ${records.length} 筆`;
 
-      const rowHtml = (record) => {
+      const rowHtml = (record, index) => {
         const missed = isMissedProfit(record);
+        const recordId = signalRecordStableId(record, index);
+        const expanded = expandedSignalRecordIds.has(recordId);
         return `
           <tr class="${missed ? "missed-profit-row" : ""}">
+            <td>${outcomeBadge(record)}${missed ? `<span class="missed-profit-chip">有賺沒帶走</span>` : ""}</td>
             <td>${record.createdAt ? new Date(record.createdAt).toLocaleString("zh-TW", { hour12: false }) : "-"}</td>
             <td>${record.symbol || "-"}</td>
             <td>${directionBadge(record)}</td>
             <td>${levelBadge(record.signalLevel)}</td>
             <td>${formatSetupTypeLabel(record.setupType)}</td>
-            <td>${priceNumber(Number(record.entry))}</td>
-            <td>${priceNumber(Number(record.stop))}</td>
-            <td>${priceNumber(Number(record.tp1))}</td>
-            <td>${priceNumber(Number(record.tp2))}</td>
-            <td>${priceNumber(Number(record.tp3))}</td>
-            <td>${targetIcon(recordTargetReached(record, 1))}</td>
-            <td>${targetIcon(recordTargetReached(record, 2))}</td>
-            <td>${targetIcon(recordTargetReached(record, 3))}</td>
             <td>${rValueHtml(record.maxReachedR)}</td>
             <td>${rValueHtml(record.finalR)}</td>
-            <td>${outcomeBadge(record)}</td>
+            <td><button class="btn record-detail-toggle" type="button" data-record-detail-id="${recordId}">${expanded ? "收合" : "詳細"}</button></td>
+          </tr>
+          <tr class="record-detail-row ${expanded ? "" : "hide"}">
+            <td colspan="9">${recordDetailPanel(record)}</td>
           </tr>
         `;
       };
@@ -2590,24 +2840,24 @@
       const cardHtml = (record) => {
         const missed = isMissedProfit(record);
         return `
-          <article class="signal-record-card ${missed ? "missed-profit-row" : ""}">
-            <div class="signal-card-head">
-              <div>
-                <strong>${record.symbol || "-"}</strong>
-                <div class="signal-card-time">${record.createdAt ? new Date(record.createdAt).toLocaleString("zh-TW", { hour12: false }) : "-"}</div>
-              </div>
-              <div class="signal-card-badges">${directionBadge(record)} ${levelBadge(record.signalLevel)} ${outcomeBadge(record)}</div>
+          <article class="signal-record-card mobile-record-card ${missed ? "missed-profit-row" : ""}">
+            <div class="mobile-record-line">
+              <div class="signal-card-badges">${outcomeBadge(record)} ${directionBadge(record)} ${levelBadge(record.signalLevel)}</div>
+              <strong>${record.symbol || "-"}</strong>
+            </div>
+            <div class="mobile-record-line">
+              <div class="signal-card-time">${record.createdAt ? new Date(record.createdAt).toLocaleString("zh-TW", { hour12: false }) : "-"}</div>
+              <div>${formatSetupTypeLabel(record.setupType)}</div>
             </div>
             <div class="signal-card-grid">
-              <div><span>型態</span>${formatSetupTypeLabel(record.setupType)}</div>
-              <div><span>進場</span>${priceNumber(Number(record.entry))}</div>
-              <div><span>止損</span>${priceNumber(Number(record.stop))}</div>
-              <div><span>TP1 / TP2 / TP3</span>${priceNumber(Number(record.tp1))} / ${priceNumber(Number(record.tp2))} / ${priceNumber(Number(record.tp3))}</div>
               <div><span>最大 R</span>${rValueHtml(record.maxReachedR)}</div>
               <div><span>最終 R</span>${rValueHtml(record.finalR)}</div>
-              <div><span>TP 達標</span>TP1 ${targetIcon(recordTargetReached(record, 1))}　TP2 ${targetIcon(recordTargetReached(record, 2))}　TP3 ${targetIcon(recordTargetReached(record, 3))}</div>
-              <div><span>診斷</span>${missed ? "有賺變虧" : "無特殊標記"}</div>
             </div>
+            ${missed ? `<div><span class="missed-profit-chip">有賺沒帶走</span></div>` : ""}
+            <details class="mobile-record-detail">
+              <summary>詳細</summary>
+              ${recordDetailPanel(record)}
+            </details>
           </article>
         `;
       };
@@ -2615,7 +2865,7 @@
       if (tableBody) {
         tableBody.innerHTML = filtered.length
           ? filtered.map(rowHtml).join("")
-          : `<tr><td colspan="16">目前沒有符合篩選條件的訊號紀錄</td></tr>`;
+          : `<tr><td colspan="9">目前沒有符合篩選條件的訊號紀錄</td></tr>`;
       }
       if (cardList) {
         cardList.innerHTML = filtered.length
@@ -2644,7 +2894,7 @@
       if (loading) {
         document.querySelector("#signalStatsStatus").textContent = "載入中...";
         document.querySelector("#signalApiStatus").textContent = "讀取中";
-        document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="16">正在載入訊號紀錄...</td></tr>`;
+        document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="9">正在載入訊號紀錄...</td></tr>`;
         document.querySelector("#signalRecordCards").innerHTML = `<div class="empty">正在載入訊號紀錄...</div>`;
       }
       renderSignalPagination(signalStatsPagination);
@@ -2701,7 +2951,7 @@
         if (error.name === "AbortError" || requestId !== signalStatsRequestSequence) return;
         document.querySelector("#signalStatsStatus").textContent = `API 錯誤：${error.message || "訊號統計讀取失敗"}`;
         document.querySelector("#signalApiStatus").textContent = "錯誤";
-        document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="16">API 錯誤，無法載入訊號紀錄</td></tr>`;
+        document.querySelector("#signalRecords").innerHTML = `<tr><td colspan="9">API 錯誤，無法載入訊號紀錄</td></tr>`;
         document.querySelector("#signalRecordCards").innerHTML = `<div class="empty">API 錯誤，無法載入訊號紀錄</div>`;
       } finally {
         if (requestId === signalStatsRequestSequence) {
@@ -3349,7 +3599,8 @@
         quickSignalLevel: "-",
         quickReason: "-",
         quickTelegram: "-",
-        quickSetupType: "-"
+        quickSetupType: "-",
+        quickRiskWarnings: "-"
       };
       if (!data) {
         Object.entries(defaults).forEach(([id, value]) => {
@@ -3367,7 +3618,8 @@
         quickSignalLevel: data.signalLevel === "D" ? "不建議" : data.signalLevel || "-",
         quickReason: reasons[0] || data.finalSignal || "-",
         quickTelegram: data.telegramWillNotify ? "會推播" : `不推播${data.noTelegramReason ? "｜" + formatWarningLabel(data.noTelegramReason) : ""}`,
-        quickSetupType: formatSetupTypeLabel(data.setupType)
+        quickSetupType: formatSetupTypeLabel(data.setupType),
+        quickRiskWarnings: data.riskWarnings?.length ? data.riskWarnings.map(formatWarningLabel).join("｜") : "目前沒有主要風險提醒"
       };
       Object.entries(values).forEach(([id, value]) => {
         const target = document.querySelector("#" + id);
@@ -3375,10 +3627,34 @@
       });
     }
 
+    function setDecisionPanelTone(data) {
+      const panel = document.querySelector(".decision");
+      if (!panel) return;
+      panel.classList.remove("decision-long", "decision-short", "decision-wait", "decision-muted");
+      if (!data) {
+        panel.classList.add("decision-muted");
+        return;
+      }
+      if (data.signalLevel === "D" || data.finalSignal === "不建議") {
+        panel.classList.add("decision-wait");
+        return;
+      }
+      if (data.direction === "long") {
+        panel.classList.add("decision-long");
+        return;
+      }
+      if (data.direction === "short") {
+        panel.classList.add("decision-short");
+        return;
+      }
+      panel.classList.add("decision-muted");
+    }
+
     function renderAdvancedAnalysis() {
       const ids = ["volumeStatus", "macdStatus", "atrStatus", "entryQuality", "finalSignal", "riskWarnings", "tradePlan", "analysisStatus"];
       if (!latestAdvancedAnalysis) {
         renderDecisionSummary(null);
+        setDecisionPanelTone(null);
         document.querySelector("#volumeStatus").textContent = "資料不足";
         document.querySelector("#macdStatus").textContent = "資料不足";
         document.querySelector("#atrStatus").textContent = "資料不足";
@@ -3392,6 +3668,7 @@
       }
       const data = latestAdvancedAnalysis;
       renderDecisionSummary(data);
+      setDecisionPanelTone(data);
       document.querySelector("#volumeStatus").textContent = `${number(data.volumeRatio, 2)}x｜${data.volumeStatus}`;
       document.querySelector("#macdStatus").textContent = data.macd.label;
       document.querySelector("#atrStatus").textContent = `${number(data.atr)}｜${number(data.atrInfo.percent, 3)}%｜${data.atrInfo.status}`;
@@ -3607,6 +3884,7 @@
         document.querySelector("#maBias").textContent = "資料不足";
         document.querySelector("#tradeBias").textContent = "等待";
         document.querySelector("#tradeReason").textContent = "請先更新市場數據。";
+        setDecisionPanelTone(null);
         document.querySelector("#longScore").textContent = "0 / 4";
         document.querySelector("#shortScore").textContent = "0 / 4";
         document.querySelector("#longConditions").innerHTML = "";
@@ -3640,6 +3918,7 @@
 
       const decision = latestAdvancedAnalysis?.finalSignal || "等待";
       document.querySelector("#tradeBias").textContent = decision;
+      setDecisionPanelTone(latestAdvancedAnalysis);
       const reasons = latestAdvancedAnalysis
         ? [...(latestAdvancedAnalysis.hardBlockReasons || []), ...(latestAdvancedAnalysis.warnings || [])]
         : [];
@@ -3692,6 +3971,17 @@
     ["signalFilterSymbol", "signalFilterDirection", "signalFilterLevel", "signalFilterOutcome", "signalFilterMissedProfit"].forEach((id) => {
       document.querySelector("#" + id)?.addEventListener("change", updateSignalRecordFilters);
     });
+    document.querySelector("#signalRecords")?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-record-detail-id]");
+      if (!button) return;
+      const recordId = button.dataset.recordDetailId;
+      if (expandedSignalRecordIds.has(recordId)) {
+        expandedSignalRecordIds.delete(recordId);
+      } else {
+        expandedSignalRecordIds.add(recordId);
+      }
+      renderSignalRecordViews(latestSignalRecords);
+    });
     document.querySelector("#signalPageLimit")?.addEventListener("change", (event) => {
       const nextLimit = Number(event.target.value);
       if (![20, 50, 100].includes(nextLimit) || signalStatsLoading) return;
@@ -3708,6 +3998,9 @@
       refreshSignalStats(signalStatsPage + 1);
     });
 
+    initCollapsible("#advancedSettingsToggle", "#advancedSettingsContent", advancedSettingsCollapsedKey, true);
+    initCollapsible("#technicalDetailsToggle", "#technicalDetailsContent", technicalDetailsCollapsedKey, true);
+    initCollapsible("#slippageReplayToggle", "#slippageReplayContent", slippageReplayCollapsedKey, true);
     loadLayoutMode();
     loadTelegramSettings();
     loadBingxApiProxyUrl();
