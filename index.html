@@ -1849,17 +1849,17 @@
       </div>
     </section>
 
-    <section class="panel signal-stats-panel slippage-replay-panel" aria-label="滑單回查">
+    <section class="panel signal-stats-panel slippage-replay-panel" aria-label="漏單回查">
       <div class="collapsible-head">
         <div>
-          <h2>滑單回查</h2>
-          <div class="note-line" id="snapshotSearchStatus">可用幣種 / 時間 / 型態 / 等級 / 阻擋原因篩選最近掃描快照。</div>
+          <h2>漏單回查</h2>
+          <div class="note-line" id="snapshotSearchStatus">可用幣種 / 時間 / 型態 / 等級 / 阻擋原因篩選最近掃描快照，用來檢查可能漏掉的訊號。</div>
         </div>
         <button class="btn collapsible-toggle" id="slippageReplayToggle" type="button">展開</button>
       </div>
       <div class="collapsible-content collapsed" id="slippageReplayContent">
         <div class="signal-stats-actions" style="justify-content:flex-start;margin-bottom:10px;">
-          <button class="btn" id="snapshotSearchBtn" type="button">查詢掃描快照</button>
+          <button class="btn" id="snapshotSearchBtn" type="button">查詢漏單快照</button>
         </div>
         <div class="missed-signal-filters">
           <div class="field"><label for="snapshotSymbol">幣種</label><input id="snapshotSymbol" type="text" placeholder="SOL-USDT"></div>
@@ -2253,6 +2253,163 @@
         minimumFractionDigits: digits,
         maximumFractionDigits: digits
       });
+    }
+
+    function formatSymbolPrice(value, symbol = currentSymbol()) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return "-";
+      const normalized = String(symbol || currentSymbol()).toUpperCase();
+      const digits = normalized.startsWith("BTC") || normalized.startsWith("ETH")
+        ? 2
+        : normalized.startsWith("SOL")
+          ? 3
+          : normalized.startsWith("XRP") || normalized.startsWith("DOGE")
+            ? 5
+            : Math.abs(numeric) >= 100 ? 2 : Math.abs(numeric) >= 10 ? 3 : Math.abs(numeric) >= 1 ? 4 : 6;
+      return numeric.toLocaleString("en-US", {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits
+      });
+    }
+
+    function pickFirstFiniteNumber(...values) {
+      for (const value of values) {
+        if (value === null || value === undefined || value === "") continue;
+        const parsed = typeof value === "string" ? value.replace(/,/g, "").trim() : value;
+        const numeric = Number(parsed);
+        if (Number.isFinite(numeric)) return numeric;
+      }
+      return null;
+    }
+
+    function getNestedValue(source, path) {
+      return String(path).split(".").reduce((target, part) => {
+        if (target === null || target === undefined) return undefined;
+        return target[part];
+      }, source);
+    }
+
+    function getArrayValue(source, path, index) {
+      const list = getNestedValue(source, path);
+      return Array.isArray(list) ? list[index] : undefined;
+    }
+
+    function parseTradePlanNumber(analysis, labels = []) {
+      const rawPlan = analysis?.tradePlan;
+      if (typeof rawPlan !== "string") return null;
+      const text = rawPlan
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<[^>]+>/g, "")
+        .replace(/&nbsp;/g, " ");
+      for (const label of labels) {
+        const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const match = text.match(new RegExp(`${escaped}\\s*[：:]\\s*([+-]?[\\d,]+(?:\\.\\d+)?)`));
+        const value = pickFirstFiniteNumber(match?.[1]);
+        if (value !== null) return value;
+      }
+      return null;
+    }
+
+    function isKnownRMultiple(analysis, value, key) {
+      if (!String(key).startsWith("tp")) return false;
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return false;
+      const knownMultiples = [
+        analysis?.rrToTp1,
+        analysis?.rrToTp2,
+        analysis?.rrToTp3,
+        analysis?.rrDisplay,
+        analysis?.rrStretch,
+        marketValue("tp3R")
+      ].map(Number).filter(Number.isFinite);
+      return knownMultiples.some((rr) => Math.abs(rr - numeric) < 0.0000001);
+    }
+
+    function isLikelyTargetPrice(analysis, value, key, entry) {
+      if (!String(key).startsWith("tp")) return true;
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || isKnownRMultiple(analysis, numeric, key)) return false;
+      const side = analysis?.direction;
+      const entryPrice = Number(entry);
+      if (Number.isFinite(entryPrice)) {
+        if (side === "long" && numeric <= entryPrice) return false;
+        if (side === "short" && numeric >= entryPrice) return false;
+      }
+      return true;
+    }
+
+    function pickTradePlanValue(analysis, key) {
+      const candidateMap = {
+        entry: [
+          "entry", "entryPrice", "suggestedEntry", "tradeEntry", "tradePlan.entry", "tradePlan.entryPrice",
+          "recommendation.entry", "recommendation.entryPrice", "signal.entry", "signal.entryPrice", "plan.entry", "plan.entryPrice"
+        ],
+        stopLoss: [
+          "stop", "stopLoss", "stopLossPrice", "sl", "tradeStop", "tradePlan.stop", "tradePlan.stopLoss",
+          "tradePlan.stopLossPrice", "tradePlan.sl", "recommendation.stopLoss", "recommendation.sl",
+          "signal.stopLoss", "signal.sl", "plan.stop", "plan.stopLoss", "plan.stopLossPrice", "plan.sl"
+        ],
+        tp1: [
+          "tp1", "takeProfit1", "target1", "tradePlan.tp1", "tradePlan.takeProfit1",
+          "recommendation.tp1", "recommendation.takeProfit1", "signal.tp1", "signal.takeProfit1", "plan.tp1", "plan.takeProfit1"
+        ],
+        tp2: [
+          "tp2", "takeProfit2", "target2", "tradePlan.tp2", "tradePlan.takeProfit2",
+          "recommendation.tp2", "recommendation.takeProfit2", "signal.tp2", "signal.takeProfit2", "plan.tp2", "plan.takeProfit2"
+        ],
+        tp3: [
+          "tp3", "takeProfit3", "target3", "tradePlan.tp3", "tradePlan.takeProfit3",
+          "recommendation.tp3", "recommendation.takeProfit3", "signal.tp3", "signal.takeProfit3", "plan.tp3", "plan.takeProfit3"
+        ]
+      };
+      const arrayMap = {
+        tp1: [["targets", 0], ["takeProfits", 0], ["recommendation.targets", 0], ["signal.targets", 0]],
+        tp2: [["targets", 1], ["takeProfits", 1], ["recommendation.targets", 1], ["signal.targets", 1]],
+        tp3: [["targets", 2], ["takeProfits", 2], ["recommendation.targets", 2], ["signal.targets", 2]]
+      };
+      const tradePlanLabels = {
+        entry: ["進場", "進場價"],
+        stopLoss: ["止損", "停損"],
+        tp1: ["止盈1", "TP1", "止盈 1"],
+        tp2: ["止盈2", "TP2", "止盈 2"],
+        tp3: ["止盈3", "TP3", "止盈 3"]
+      };
+      const rawCandidates = [
+        ...(candidateMap[key] || []).map((path) => getNestedValue(analysis, path)),
+        ...(arrayMap[key] || []).map(([path, index]) => getArrayValue(analysis, path, index)),
+        parseTradePlanNumber(analysis, tradePlanLabels[key] || [])
+      ];
+      const entry = key === "entry" ? null : pickTradePlanValue(analysis, "entry");
+      for (const value of rawCandidates) {
+        const numeric = pickFirstFiniteNumber(value);
+        if (numeric === null) continue;
+        if (!isLikelyTargetPrice(analysis, numeric, key, entry)) continue;
+        return numeric;
+      }
+      return null;
+    }
+
+    function pickTradePlanRValue(analysis, level) {
+      const candidateMap = {
+        1: ["rrToTp1", "rrDisplay", "rr1", "riskReward1", "tradePlan.rrToTp1", "recommendation.rrToTp1", "signal.rrToTp1", "plan.rrToTp1"],
+        2: ["rrToTp2", "rrStretch", "rr2", "riskReward2", "tradePlan.rrToTp2", "recommendation.rrToTp2", "signal.rrToTp2", "plan.rrToTp2"],
+        3: ["rrToTp3", "rr3", "riskReward3", "tradePlan.rrToTp3", "recommendation.rrToTp3", "signal.rrToTp3", "plan.rrToTp3"]
+      };
+      const labelMap = {
+        1: ["風報1", "RR1", "R1"],
+        2: ["風報2", "RR2", "R2"],
+        3: ["風報3", "RR3", "R3"]
+      };
+      const candidates = [
+        ...(candidateMap[level] || []).map((path) => getNestedValue(analysis, path)),
+        parseTradePlanNumber(analysis, labelMap[level] || [])
+      ];
+      for (const value of candidates) {
+        const numeric = pickFirstFiniteNumber(value);
+        if (numeric === null) continue;
+        if (numeric > 0 && numeric <= 20) return numeric;
+      }
+      return null;
     }
 
     function marketValue(id) {
@@ -3610,11 +3767,23 @@
         return;
       }
       const reasons = [...(data.hardBlockReasons || []), ...(data.warnings || [])].map(formatWarningLabel);
+      const actionableSignal = ["S+", "S", "A", "B"].includes(String(data.signalLevel || "").toUpperCase())
+        && ["long", "short"].includes(data.direction)
+        && data.finalSignal !== "不建議";
+      const entry = actionableSignal ? pickTradePlanValue(data, "entry") : null;
+      const stopLoss = actionableSignal ? pickTradePlanValue(data, "stopLoss") : null;
+      const tp1 = actionableSignal ? pickTradePlanValue(data, "tp1") : null;
+      const tp2 = actionableSignal ? pickTradePlanValue(data, "tp2") : null;
+      const tp3 = actionableSignal ? pickTradePlanValue(data, "tp3") : null;
+      const rr1 = actionableSignal ? pickTradePlanRValue(data, 1) : null;
+      const rr2 = actionableSignal ? pickTradePlanRValue(data, 2) : null;
+      const rr3 = actionableSignal ? pickTradePlanRValue(data, 3) : null;
+      const symbol = data.symbol || currentSymbol();
       const values = {
-        quickEntry: data.entryZone || "-",
-        quickStop: Number.isFinite(data.stop) ? priceNumber(data.stop) : "-",
-        quickTargets: `${Number.isFinite(data.tp1) ? priceNumber(data.tp1) : "-"} / ${Number.isFinite(data.tp2) ? priceNumber(data.tp2) : "-"} / ${Number.isFinite(data.tp3) ? priceNumber(data.tp3) : "-"}`,
-        quickRr: `${Number.isFinite(data.rrToTp1) ? number(data.rrToTp1, 1) + "R" : "-"} / ${Number.isFinite(data.rrToTp2) ? number(data.rrToTp2, 1) + "R" : "-"} / ${Number.isFinite(data.rrToTp3) ? number(data.rrToTp3, 1) + "R" : "-"}`,
+        quickEntry: entry !== null ? formatSymbolPrice(entry, symbol) : actionableSignal && data.entryZone ? data.entryZone : "-",
+        quickStop: stopLoss !== null ? formatSymbolPrice(stopLoss, symbol) : "-",
+        quickTargets: `${tp1 !== null ? formatSymbolPrice(tp1, symbol) : "-"} / ${tp2 !== null ? formatSymbolPrice(tp2, symbol) : "-"} / ${tp3 !== null ? formatSymbolPrice(tp3, symbol) : "-"}`,
+        quickRr: actionableSignal ? `${rr1 !== null ? number(rr1, 1) + "R" : "-"} / ${rr2 !== null ? number(rr2, 1) + "R" : "-"} / ${rr3 !== null ? number(rr3, 1) + "R" : "-"}` : "-",
         quickSignalLevel: data.signalLevel === "D" ? "不建議" : data.signalLevel || "-",
         quickReason: reasons[0] || data.finalSignal || "-",
         quickTelegram: data.telegramWillNotify ? "會推播" : `不推播${data.noTelegramReason ? "｜" + formatWarningLabel(data.noTelegramReason) : ""}`,
