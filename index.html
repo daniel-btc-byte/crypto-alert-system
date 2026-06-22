@@ -284,29 +284,36 @@
     }
 
     .signal-head {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-      align-items: start;
-      justify-content: flex-start;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
       gap: 12px;
       margin-bottom: 0;
       height: auto;
       min-height: unset;
     }
 
-    .signal-head > div:first-child {
-      grid-column: 1;
+    .decision-panel-header {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .decision-panel-header h2 {
+      margin-bottom: 0;
+      white-space: nowrap;
     }
 
     .decision {
-      grid-column: 2;
       border: 1px solid var(--line);
       border-radius: 16px;
       background: var(--panel-strong);
       padding: 22px 28px;
-      min-width: min(420px, 100%);
+      width: min(560px, 100%);
       text-align: center;
-      justify-self: center;
+      align-self: center;
     }
 
     .decision.decision-long {
@@ -386,6 +393,11 @@
       margin-bottom: 12px;
     }
 
+    .decision-summary-grid.is-hidden,
+    .decision-wait-card.is-hidden {
+      display: none;
+    }
+
     .signal-card,
     .analysis-card,
     .decision-summary-card {
@@ -399,6 +411,45 @@
 
     .decision-summary-card.wide {
       grid-column: span 2;
+    }
+
+    .decision-wait-card {
+      border: 1px solid rgba(240, 185, 11, .34);
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(240, 185, 11, .1), rgba(255, 255, 255, .03));
+      padding: 18px;
+      margin-bottom: 12px;
+    }
+
+    .decision-wait-card h3 {
+      margin: 0 0 10px;
+      font-size: 20px;
+    }
+
+    .decision-wait-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .decision-wait-grid div {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .035);
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .decision-wait-grid span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .decision-wait-grid strong {
+      display: block;
+      overflow-wrap: anywhere;
     }
 
     .condition-box {
@@ -1288,13 +1339,16 @@
       .signal-head,
       body.layout-auto .signal-head,
       body.layout-portrait .signal-head {
-        display: contents;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
       }
 
       .decision,
       body.layout-auto .decision,
       body.layout-portrait .decision {
         order: 1;
+        width: 100%;
         min-width: 0;
         text-align: left;
       }
@@ -1309,8 +1363,8 @@
         gap: 8px;
       }
 
-      .signal-head > div {
-        order: 4;
+      .decision-panel-header {
+        order: 0;
       }
 
       .signal-grid,
@@ -1348,6 +1402,7 @@
 
       .analysis-grid,
       .decision-summary-grid,
+      .decision-wait-grid,
       body.layout-auto .analysis-grid,
       body.layout-portrait .analysis-grid {
         order: 6;
@@ -1465,7 +1520,7 @@
       }
 
       .signal-head {
-        display: grid;
+        display: flex;
       }
 
       .decision {
@@ -1637,7 +1692,7 @@
 
       <section class="panel signal-panel">
       <div class="signal-head">
-        <div>
+        <div class="decision-panel-header">
           <h2>盤面判斷</h2>
           <div class="note-line" id="bufferHint">追價緩衝：0.3%</div>
         </div>
@@ -1655,6 +1710,17 @@
           <strong id="autoUpdateCountdownMobile">下一次更新倒數：5 秒</strong>
         </div>
         <div class="market-status" id="marketUpdateStatusMobile">等待自動更新</div>
+      </div>
+
+      <div class="decision-wait-card is-hidden" id="decisionWaitCard" aria-live="polite">
+        <h3>等待有效訊號</h3>
+        <div class="decision-wait-grid">
+          <div><span>狀態</span><strong id="waitSignalStatus">目前不建議進場</strong></div>
+          <div><span>等級</span><strong id="waitSignalLevel">不建議</strong></div>
+          <div><span>原因</span><strong id="waitSignalReason">請先更新市場數據。</strong></div>
+          <div><span>Telegram</span><strong id="waitTelegramStatus">不推播</strong></div>
+          <div><span>風險提醒</span><strong id="waitRiskWarnings">-</strong></div>
+        </div>
       </div>
 
       <div class="decision-summary-grid" aria-label="快速決策卡">
@@ -3747,6 +3813,44 @@
       return scoreAdvancedAnalysisV2(analysis, basic);
     }
 
+    function isActionableSignal(analysis) {
+      if (!analysis) return false;
+      const finalSignal = String(analysis.finalSignal || analysis.recommendation || "").trim();
+      if (/不建議|等待|未確認|方向不明/.test(finalSignal)) return false;
+      const level = String(analysis.signalLevel || analysis.entryGrade || analysis.marketGrade || "").toUpperCase();
+      const direction = analysis.direction || analysis.signal?.direction || analysis.recommendation?.direction;
+      if (["S+", "S", "A", "B"].includes(level) && ["long", "short"].includes(direction)) return true;
+      return /(?:S\+|S|A|B)級做(?:多|空)|可做(?:多|空)/.test(finalSignal);
+    }
+
+    function setDecisionSummaryMode(actionable) {
+      document.querySelector(".decision-summary-grid")?.classList.toggle("is-hidden", !actionable);
+      document.querySelector("#decisionWaitCard")?.classList.toggle("is-hidden", actionable);
+    }
+
+    function setDecisionWaitCard(data, reasons) {
+      const level = data?.signalLevel === "D" ? "不建議" : data?.signalLevel || data?.finalSignal || "等待";
+      const telegram = data?.telegramWillNotify
+        ? "會推播"
+        : `不推播${data?.noTelegramReason ? "｜" + formatWarningLabel(data.noTelegramReason) : ""}`;
+      const riskWarnings = data?.riskWarnings?.length
+        ? data.riskWarnings.map(formatWarningLabel).join("｜")
+        : reasons?.length
+          ? reasons.join("｜")
+          : "請等待更清楚的訊號。";
+      const values = {
+        waitSignalStatus: "目前不建議進場",
+        waitSignalLevel: level,
+        waitSignalReason: reasons?.[0] || data?.finalSignal || "請先更新市場數據。",
+        waitTelegramStatus: telegram,
+        waitRiskWarnings: riskWarnings
+      };
+      Object.entries(values).forEach(([id, value]) => {
+        const target = document.querySelector("#" + id);
+        if (target) target.textContent = value;
+      });
+    }
+
     function renderDecisionSummary(data) {
       const defaults = {
         quickEntry: "-",
@@ -3760,6 +3864,8 @@
         quickRiskWarnings: "-"
       };
       if (!data) {
+        setDecisionSummaryMode(false);
+        setDecisionWaitCard(null, []);
         Object.entries(defaults).forEach(([id, value]) => {
           const target = document.querySelector("#" + id);
           if (target) target.textContent = value;
@@ -3767,9 +3873,12 @@
         return;
       }
       const reasons = [...(data.hardBlockReasons || []), ...(data.warnings || [])].map(formatWarningLabel);
-      const actionableSignal = ["S+", "S", "A", "B"].includes(String(data.signalLevel || "").toUpperCase())
-        && ["long", "short"].includes(data.direction)
-        && data.finalSignal !== "不建議";
+      const actionableSignal = isActionableSignal(data);
+      setDecisionSummaryMode(actionableSignal);
+      if (!actionableSignal) {
+        setDecisionWaitCard(data, reasons);
+        return;
+      }
       const entry = actionableSignal ? pickTradePlanValue(data, "entry") : null;
       const stopLoss = actionableSignal ? pickTradePlanValue(data, "stopLoss") : null;
       const tp1 = actionableSignal ? pickTradePlanValue(data, "tp1") : null;
@@ -3804,7 +3913,7 @@
         panel.classList.add("decision-muted");
         return;
       }
-      if (data.signalLevel === "D" || data.finalSignal === "不建議") {
+      if (!isActionableSignal(data)) {
         panel.classList.add("decision-wait");
         return;
       }
