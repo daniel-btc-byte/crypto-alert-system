@@ -1740,6 +1740,10 @@
                 <label for="ma15m10">15m MA10</label>
                 <input id="ma15m10" type="number" min="0" step="0.01">
               </div>
+              <div class="field">
+                <label for="ma15m200">15m MA200</label>
+                <input id="ma15m200" type="number" min="0" step="0.01">
+              </div>
             </div>
           </section>
           <section class="advanced-settings collapsible-panel soft">
@@ -1865,6 +1869,7 @@
             <div class="signal-card"><span>15m 趨勢</span><strong id="bias15m">資料不足</strong></div>
             <div class="signal-card"><span>MA5 / MA10</span><strong id="maBias">資料不足</strong></div>
             <div class="signal-card"><span>4H MA200</span><strong id="ma200Value">資料不足</strong></div>
+            <div class="signal-card"><span>15m MA200</span><strong id="ma15m200Value">資料不足</strong></div>
             <div class="signal-card"><span>MA200 狀態</span><strong id="ma200Trend">資料不足</strong></div>
             <div class="signal-card"><span>距離 4H MA200</span><strong id="ma200Distance">資料不足</strong></div>
           </div>
@@ -2097,7 +2102,9 @@
     const telegramChatIdKey = "telegramChatId";
     const bingxApiProxyUrlKey = "bingx-api-proxy-url-v1";
     const defaultBingxApiProxyUrl = "https://bingx-proxy.danielfeng8.workers.dev";
-    const marketFields = ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "recentHigh", "recentLow", "chaseBufferPercent", "tp3R", "minStopBtc", "minStopEth", "minStopSol", "minStopXrp", "cooldownMinutes", "ma30LimitBtc", "ma30LimitEth", "ma30LimitSol", "ma30LimitXrp", "ma30LimitDoge", "trendMode", "entryMode"];
+    const ma200ExplanationText = "4H MA200 是用 4小時K線計算，與 BingX 目前 15分鐘圖上的 MA200 不同。";
+    const marketFields = ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "ma15m200", "recentHigh", "recentLow", "chaseBufferPercent", "tp3R", "minStopBtc", "minStopEth", "minStopSol", "minStopXrp", "cooldownMinutes", "ma30LimitBtc", "ma30LimitEth", "ma30LimitSol", "ma30LimitXrp", "ma30LimitDoge", "trendMode", "entryMode"];
+    const priceInputIds = ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "ma15m200", "recentHigh", "recentLow"];
     const tradeCooldownStorageKey = "trade-cooldown-until-v1";
     const marketStorageKeyBase = "btc-market-dashboard-v1";
     const layoutStorageKey = "btc-dashboard-layout-mode";
@@ -2277,6 +2284,7 @@
     function updateSymbolUi() {
       const symbol = currentSymbol();
       const base = symbolBase(symbol);
+      updatePriceInputSteps(symbol);
       document.title = symbol + " 看盤輔助儀表板";
       const title = document.querySelector("h1");
       if (title) title.textContent = symbol + " 看盤輔助儀表板";
@@ -2462,17 +2470,43 @@
     function formatSymbolPrice(value, symbol = currentSymbol()) {
       const numeric = Number(value);
       if (!Number.isFinite(numeric)) return "-";
-      const normalized = String(symbol || currentSymbol()).toUpperCase();
-      const digits = normalized.startsWith("BTC") || normalized.startsWith("ETH")
-        ? 2
-        : normalized.startsWith("SOL")
-          ? 3
-          : normalized.startsWith("XRP") || normalized.startsWith("DOGE")
-            ? 5
-            : Math.abs(numeric) >= 100 ? 2 : Math.abs(numeric) >= 10 ? 3 : Math.abs(numeric) >= 1 ? 4 : 6;
+      const digits = symbolPriceDigits(symbol, numeric);
       return numeric.toLocaleString("en-US", {
         minimumFractionDigits: digits,
         maximumFractionDigits: digits
+      });
+    }
+
+    function symbolPriceDigits(symbol = currentSymbol(), value = null) {
+      const normalized = String(symbol || currentSymbol()).toUpperCase();
+      if (normalized.startsWith("BTC") || normalized.startsWith("ETH")) return 2;
+      if (normalized.startsWith("SOL")) return 3;
+      if (normalized.startsWith("XRP") || normalized.startsWith("DOGE")) return 5;
+      const numeric = Number(value);
+      return Math.abs(numeric) >= 100 ? 2 : Math.abs(numeric) >= 10 ? 3 : Math.abs(numeric) >= 1 ? 4 : 6;
+    }
+
+    function symbolPriceStep(symbol = currentSymbol()) {
+      const digits = symbolPriceDigits(symbol);
+      return digits <= 0 ? "1" : "0." + "0".repeat(Math.max(0, digits - 1)) + "1";
+    }
+
+    function formatSymbolInputValue(value, symbol = currentSymbol()) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return "";
+      return numeric.toFixed(symbolPriceDigits(symbol, numeric));
+    }
+
+    function formatOptionalSymbolPrice(value, symbol = currentSymbol()) {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) && numeric > 0 ? formatSymbolPrice(numeric, symbol) : "資料不足";
+    }
+
+    function updatePriceInputSteps(symbol = currentSymbol()) {
+      const step = symbolPriceStep(symbol);
+      priceInputIds.forEach((id) => {
+        const input = document.querySelector("#" + id);
+        if (input) input.step = step;
       });
     }
 
@@ -3059,11 +3093,11 @@
     function recordDetailPanel(record) {
       return `
         <div class="record-detail-panel">
-          <div><span>進場價</span>${priceNumber(Number(record.entry))}</div>
-          <div><span>止損</span>${priceNumber(Number(record.stop))}</div>
-          <div><span>主要止盈TP1</span>${priceNumber(Number(record.tp1))}</div>
-          <div><span>參考TP2</span>${priceNumber(Number(record.tp2))}</div>
-          <div><span>參考TP3</span>${priceNumber(Number(record.tp3))}</div>
+          <div><span>進場價</span>${formatSymbolPrice(Number(record.entry), record.symbol)}</div>
+          <div><span>止損</span>${formatSymbolPrice(Number(record.stop), record.symbol)}</div>
+          <div><span>主要止盈TP1</span>${formatSymbolPrice(Number(record.tp1), record.symbol)}</div>
+          <div><span>參考TP2</span>${formatSymbolPrice(Number(record.tp2), record.symbol)}</div>
+          <div><span>參考TP3</span>${formatSymbolPrice(Number(record.tp3), record.symbol)}</div>
           <div><span>正式TP1達標</span>${targetIcon(recordTargetReached(record, 1))}</div>
           <div><span>參考TP2達標</span>${targetIcon(recordTargetReached(record, 2))}</div>
           <div><span>參考TP3達標</span>${targetIcon(recordTargetReached(record, 3))}</div>
@@ -3921,6 +3955,7 @@
         riskWarnings: warnings,
         cooldown,
         ma30Deviation,
+        ma15m200: basic.ma15m200,
         ma200Distance: Number.isFinite(basic.ma4h200) && basic.ma4h200 > 0 ? (basic.price - basic.ma4h200) / basic.ma4h200 * 100 : null,
         entryMode,
         trendMode,
@@ -3932,11 +3967,11 @@
         stopLossTooSmall: false,
         tradePlan: direction ? [
           `進場型態：${formatSetupTypeLabel(setup.setupType)}`,
-          `進場：${priceNumber(planMetrics.entry ?? basic.price)}`,
-          `止損：${Number.isFinite(planMetrics.stop) ? priceNumber(planMetrics.stop) : "-"}`,
-          `主要止盈TP1：${Number.isFinite(planMetrics.tp1) ? priceNumber(planMetrics.tp1) : "-"}`,
-          `參考TP2：${Number.isFinite(planMetrics.tp2) ? priceNumber(planMetrics.tp2) : "-"}`,
-          `參考TP3：${Number.isFinite(planMetrics.tp3) ? priceNumber(planMetrics.tp3) : "-"}`,
+          `進場：${formatSymbolPrice(planMetrics.entry ?? basic.price, basic.symbol || currentSymbol())}`,
+          `止損：${Number.isFinite(planMetrics.stop) ? formatSymbolPrice(planMetrics.stop, basic.symbol || currentSymbol()) : "-"}`,
+          `主要止盈TP1：${Number.isFinite(planMetrics.tp1) ? formatSymbolPrice(planMetrics.tp1, basic.symbol || currentSymbol()) : "-"}`,
+          `參考TP2：${Number.isFinite(planMetrics.tp2) ? formatSymbolPrice(planMetrics.tp2, basic.symbol || currentSymbol()) : "-"}`,
+          `參考TP3：${Number.isFinite(planMetrics.tp3) ? formatSymbolPrice(planMetrics.tp3, basic.symbol || currentSymbol()) : "-"}`,
           `風報1：${Number.isFinite(planMetrics.rrDisplay) ? number(planMetrics.rrDisplay, 1) + "R" : "-"}`,
           `風報2：${Number.isFinite(planMetrics.rrStretch) ? number(planMetrics.rrStretch, 1) + "R" : "-"}`,
           `風報3：${Number.isFinite(planMetrics.rrToTp3) ? number(planMetrics.rrToTp3, 1) + "R" : "-"}`
@@ -4162,6 +4197,11 @@
         document.querySelector("#macdStatus").textContent = "資料不足";
         document.querySelector("#atrStatus").textContent = "資料不足";
         document.querySelector("#entryQuality").textContent = "資料不足";
+        document.querySelector("#ma200Value").textContent = "資料不足";
+        document.querySelector("#ma15m200Value").textContent = "資料不足";
+        document.querySelector("#ma200Trend").textContent = "資料不足";
+        document.querySelector("#ma200Distance").textContent = "資料不足";
+        document.querySelector("#ma200Warning").textContent = ma200ExplanationText;
         document.querySelector("#finalSignal").innerHTML = `<span class="signal-icon"></span>資料不足`;
         document.querySelector("#riskWarnings").textContent = "資料不足";
         document.querySelector("#tradePlan").textContent = "資料不足";
@@ -4180,10 +4220,17 @@
       document.querySelector("#entryQuality").innerHTML = `大方向：${data.majorTrend || "盤整"}<br>進場型態：${formatSetupTypeLabel(data.setupType)}<br>等級：${displayLevel}<br>市場：${data.marketScore ?? "-"} / 40<br><span class="${momentumTone}">動能：${data.momentumScore ?? 0} / 30</span><br>風報：${data.rrScore ?? "-"} / 30<br>總分：${data.totalScore ?? "-"} / 100${data.scorePenalty ? `<br>盤整/弱動能扣分：-${data.scorePenalty}` : ""}<br>MA30 偏離：${Number.isFinite(data.ma30Deviation?.percent) ? number(data.ma30Deviation.percent, 2) : "-"}% / 上限 ${number(data.ma30Deviation?.limit ?? 0, 2)}%<br>Telegram 推播：${data.telegramWillNotify ? "會推播" : "不推播"}${data.telegramWillNotify ? "" : "｜" + formatWarningLabel(data.noTelegramReason || "-")}`;
       document.querySelector("#finalSignal").innerHTML = `<span class="signal-icon"></span>${data.finalSignal}`;
       if (data.ma200?.available) {
-        document.querySelector("#ma200Value").textContent = number(data.ma200.value ?? marketValue("ma4h200"));
+        document.querySelector("#ma200Value").textContent = formatOptionalSymbolPrice(data.ma200.value ?? marketValue("ma4h200"), data.symbol || currentSymbol());
+        document.querySelector("#ma15m200Value").textContent = formatOptionalSymbolPrice(data.ma15m200 ?? marketValue("ma15m200"), data.symbol || currentSymbol());
         document.querySelector("#ma200Trend").textContent = data.ma200.trendLabel;
         document.querySelector("#ma200Distance").textContent = `${data.ma200.distancePercent >= 0 ? "+" : ""}${number(data.ma200.distancePercent, 2)}%`;
-        document.querySelector("#ma200Warning").textContent = data.ma200.warning;
+        document.querySelector("#ma200Warning").textContent = [data.ma200.warning, ma200ExplanationText].filter(Boolean).join("｜");
+      } else {
+        document.querySelector("#ma200Value").textContent = "資料不足";
+        document.querySelector("#ma15m200Value").textContent = formatOptionalSymbolPrice(data.ma15m200 ?? marketValue("ma15m200"), data.symbol || currentSymbol());
+        document.querySelector("#ma200Trend").textContent = data.ma200?.trendLabel || "資料不足";
+        document.querySelector("#ma200Distance").textContent = "資料不足";
+        document.querySelector("#ma200Warning").textContent = ma200ExplanationText;
       }
       document.querySelector("#riskWarnings").innerHTML = data.riskWarnings.length ? data.riskWarnings.map(formatWarningLabel).join("<br>") : "目前沒有主要風險提醒";
       document.querySelector("#tradePlan").innerHTML = data.tradePlan;
@@ -4290,13 +4337,14 @@
           ma15m30: average(klines15m.slice(-30).map((item) => item.close)),
           ma15m5: average(klines15m.slice(-5).map((item) => item.close)),
           ma15m10: average(klines15m.slice(-10).map((item) => item.close)),
+          ma15m200: average(klines15m.slice(-200).map((item) => item.close)),
           recentHigh: Math.max(...last20of15m.map((item) => item.high)),
           recentLow: Math.min(...last20of15m.map((item) => item.low))
         };
 
         Object.entries(fieldsToUpdate).forEach(([id, value]) => {
           const input = document.querySelector("#" + id);
-          if (input) input.value = Number(value).toFixed(2);
+          if (input) input.value = formatSymbolInputValue(value, symbol);
         });
         document.querySelector("#priceSource").value = "🟢 BingX Futures";
         document.querySelector("#klineSource").value = "🟢 BingX Futures Kline";
@@ -4308,6 +4356,7 @@
             ma4h: fieldsToUpdate.ma4h30,
             ma4h200: fieldsToUpdate.ma4h200,
             ma15m30: fieldsToUpdate.ma15m30,
+            ma15m200: fieldsToUpdate.ma15m200,
             ma5: fieldsToUpdate.ma15m5,
             ma10: fieldsToUpdate.ma15m10,
             ma15m30Prev: average(prev15m.slice(-30).map((item) => item.close)),
@@ -4342,7 +4391,7 @@
           : "前端分析錯誤";
         latestAdvancedAnalysis = null;
         if (errorType === "fetch") {
-          ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "recentHigh", "recentLow"].forEach((id) => {
+          ["marketPrice", "ma4h30", "ma4h200", "ma15m30", "ma15m5", "ma15m10", "ma15m200", "recentHigh", "recentLow"].forEach((id) => {
             const input = document.querySelector("#" + id);
             if (input) input.value = "";
           });
