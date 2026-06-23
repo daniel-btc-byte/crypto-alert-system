@@ -10,6 +10,9 @@ const SIGNAL_SNAPSHOTS_FILE = path.join(process.cwd(), ".cache", "signal-snapsho
 const SIGNAL_SNAPSHOT_LIMIT = 1000;
 const SIGNAL_SNAPSHOT_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const SIGNAL_EXPIRY_BARS = 48;
+const STRATEGY_VERSION = "tp1-effective-v1";
+const BACKTEST_EXIT_MODE = "TP1_EFFECTIVE";
+const MIN_TP1_DISTANCE_PCT = 0.5;
 
 const CONFIG = {
   minStopLossPercent: {
@@ -54,6 +57,27 @@ function priceNumber(value) {
   if (value >= 100) return value.toFixed(2);
   if (value >= 1) return value.toFixed(4);
   return value.toFixed(6);
+}
+
+function tp1DistancePct(entry, tp1) {
+  const entryPrice = Number(entry);
+  const targetPrice = Number(tp1);
+  if (!Number.isFinite(entryPrice) || !Number.isFinite(targetPrice) || entryPrice <= 0) return null;
+  return Math.abs(targetPrice - entryPrice) / entryPrice * 100;
+}
+
+function isTp1TooClose(entry, tp1) {
+  const distancePct = tp1DistancePct(entry, tp1);
+  return Number.isFinite(distancePct) && distancePct < MIN_TP1_DISTANCE_PCT;
+}
+
+function isFormalSignalLevel(level) {
+  return ["S+", "S", "A"].includes(String(level || "").toUpperCase());
+}
+
+function isBObserveSignal(analysisOrRecord) {
+  const level = String(analysisOrRecord?.signalLevel || analysisOrRecord?.currentSignalLevel || "").toUpperCase();
+  return level === "B";
 }
 
 function normalizeKline(item) {
@@ -675,9 +699,17 @@ function scoreAdvancedAnalysisV2(klines15m, basic, options = {}) {
   if (setup.earlyBreakoutValid && setup.formingVolumeOnly) warnings.push(`forming candle volume early warning ${number(earlyBreakoutVolumeRatio, 2)}x`);
   if (provisionalDirection) warnings.push("早段方向，尚未完全確認");
   warnings.push(...penaltyWarnings);
+  const tp1DistancePercent = tp1DistancePct(plan.entry ?? basic.price, plan.tp1);
+  const tp1TooClose = isTp1TooClose(plan.entry ?? basic.price, plan.tp1);
+  const bObserveOnly = signalLevel === "B";
   const nonTradeReasons = hardBlockReasons.length ? [...hardBlockReasons] : signalLevel === "D" ? ["score below 60"] : [];
-  const canNotify = ["S+", "S", "A"].includes(signalLevel) || (signalLevel === "B" && totalScore >= 70 && gradingRr >= 1.2);
-  const finalSignal = signalLevel === "D" ? "不建議" : `${signalLevel}級${direction === "long" ? "做多" : "做空"}`;
+  if (bObserveOnly) nonTradeReasons.push("B_OBSERVE_ONLY");
+  if (tp1TooClose) nonTradeReasons.push("TP1_TOO_CLOSE");
+  const notifyEligible = isFormalSignalLevel(signalLevel);
+  const canNotify = notifyEligible && !tp1TooClose;
+  const finalSignal = bObserveOnly
+    ? "觀察：B級觀察訊號，暫不列入正式訊號"
+    : tp1TooClose ? "觀察：TP1距離進場太近，暫不列入正式訊號" : signalLevel === "D" ? "不建議" : `${signalLevel}級${direction === "long" ? "做多" : "做空"}`;
   return {
     symbol: basic.symbol,
     direction,
@@ -700,6 +732,11 @@ function scoreAdvancedAnalysisV2(klines15m, basic, options = {}) {
     currentFormingVolume,
     currentFormingVolumeRatio,
     gradingRr,
+    strategyVersion: STRATEGY_VERSION,
+    backtestExitMode: BACKTEST_EXIT_MODE,
+    tp1DistancePercent,
+    tp1TooClose,
+    bObserveOnly,
     canNotify,
     price: basic.price,
     entryZone: priceNumber(plan.entry ?? basic.price),
@@ -728,7 +765,7 @@ function scoreAdvancedAnalysisV2(klines15m, basic, options = {}) {
     chaseRisk,
     stopLossPercent: plan.stopLossPercent,
     maxStopLossPercent: plan.maxStopLossPercent,
-    notifyBlockedReason: !canNotify ? (signalLevel === "B" ? "B score/RR below notify threshold" : `${signalLevel}級不推播`) : ""
+    notifyBlockedReason: !canNotify ? (bObserveOnly ? "B_OBSERVE_ONLY" : tp1TooClose ? "TP1 distance too close" : `${signalLevel}級不推播`) : ""
   };
 }
 
@@ -750,6 +787,8 @@ function signalKey(analysis) {
 }
 
 function shouldNotify(analysis, state) {
+  if (!isFormalSignalLevel(analysis?.signalLevel)) return { notify: false, reason: isBObserveSignal(analysis) ? "B_OBSERVE_ONLY" : "非正式等級不推播" };
+  if (analysis.tp1TooClose) return { notify: false, reason: "TP1_TOO_CLOSE" };
   if (!analysis.canNotify) return { notify: false, reason: analysis.notifyBlockedReason || "不符合推播條件" };
   const key = signalKey(analysis);
   const previous = state[key];
@@ -853,9 +892,7 @@ function signalRecordId(analysis, createdAt = Date.now()) {
 }
 
 function isValidBacktestSignal(analysis) {
-  const rrForRecord = Number.isFinite(analysis.gradingRr) ? analysis.gradingRr : analysis.rrDisplay;
-  return ["S+", "S", "A"].includes(analysis.signalLevel)
-    || (analysis.signalLevel === "B" && analysis.totalScore >= 65 && rrForRecord >= 1.1);
+  return isFormalSignalLevel(analysis.signalLevel) || isBObserveSignal(analysis);
 }
 
 function hasValidTradePlan(analysis) {
@@ -867,11 +904,17 @@ function hasValidTradePlan(analysis) {
 function buildSignalRecord(analysis) {
   const createdAt = Date.now();
   const latestBar = Array.isArray(analysis.latestKlines15m) ? analysis.latestKlines15m.at(-1) : null;
+  const tp1TooClose = isTp1TooClose(analysis.entryZone, analysis.tp1);
+  const bObserveOnly = isBObserveSignal(analysis);
+  const excludedFromStats = tp1TooClose || bObserveOnly;
+  const excludeReason = bObserveOnly ? "B_OBSERVE_ONLY" : tp1TooClose ? "TP1_TOO_CLOSE" : "";
   return {
     id: signalRecordId(analysis, createdAt),
     createdAt,
     createdAtBarTime: Number.isFinite(Number(latestBar?.time)) ? Number(latestBar.time) : null,
     trackingPolicy: "next_bar",
+    strategyVersion: STRATEGY_VERSION,
+    backtestExitMode: BACKTEST_EXIT_MODE,
     symbol: analysis.symbol,
     direction: analysis.direction,
     provisionalDirection: Boolean(analysis.provisionalDirection),
@@ -894,6 +937,10 @@ function buildSignalRecord(analysis) {
     rrToTp1: analysis.rrToTp1,
     rrToTp2: analysis.rrToTp2,
     rrToTp3: analysis.rrToTp3,
+    tp1DistancePercent: tp1DistancePct(analysis.entryZone, analysis.tp1),
+    excludedFromStats,
+    excludeReason,
+    bObserveOnly,
     stopLossPercent: analysis.stopLossPercent,
     maxStopLossPercent: analysis.maxStopLossPercent,
     tp1Hit: false,
@@ -901,11 +948,13 @@ function buildSignalRecord(analysis) {
     tp3Hit: false,
     maxReachedR: 0,
     finalR: null,
-    status: "OPEN",
-    outcome: null,
-    resolvedAt: null,
+    status: excludedFromStats ? "FILTERED" : "OPEN",
+    outcome: excludeReason || null,
+    resolvedAt: excludedFromStats ? createdAt : null,
     barsHeld: 0,
-    warnings: Array.isArray(analysis.warnings) ? analysis.warnings : []
+    warnings: excludedFromStats
+      ? Array.from(new Set([...(Array.isArray(analysis.warnings) ? analysis.warnings : []), bObserveOnly ? "B級觀察訊號，未列入正式統計" : "TP1距離進場太近，未列入正式統計"]))
+      : Array.isArray(analysis.warnings) ? analysis.warnings : []
   };
 }
 
@@ -940,15 +989,28 @@ function closeR(record, price) {
 
 function outcomeR(record, outcome, fallbackPrice = null) {
   if (outcome === "SL_HIT") return -1;
-  if (outcome === "TP1_HIT") return Number(record.rrToTp1) || 1.5;
+  if (outcome === "TP1_HIT") return 1.5;
   if (outcome === "TP2_HIT") return Number(record.rrToTp2) || 2.0;
   if (outcome === "TP3_HIT") return Number(record.rrToTp3) || CONFIG.tp3R;
-  if (outcome === "EXPIRED") return Number.isFinite(Number(fallbackPrice)) ? closeR(record, fallbackPrice) : 0;
+  if (outcome === "EXPIRED" || outcome === "TIMEOUT") return Number.isFinite(Number(fallbackPrice)) ? closeR(record, fallbackPrice) : 0;
   return Number.isFinite(Number(record.finalR)) ? Number(record.finalR) : null;
 }
 
 function resolveSignalRecord(record, klines15m) {
   if (!record || (record.status !== "OPEN" && record.result !== "OPEN")) return record;
+  if (record.strategyVersion !== STRATEGY_VERSION) return record;
+  if (!isFormalSignalLevel(record.initialSignalLevel || record.signalLevel || record.currentSignalLevel)) {
+    return {
+      ...record,
+      status: "FILTERED",
+      outcome: isBObserveSignal(record) ? "B_OBSERVE_ONLY" : "OBSERVE_ONLY",
+      excludedFromStats: true,
+      excludeReason: isBObserveSignal(record) ? "B_OBSERVE_ONLY" : "OBSERVE_ONLY",
+      resolvedAt: Date.now(),
+      finalR: null,
+      warnings: Array.from(new Set([...(Array.isArray(record.warnings) ? record.warnings : []), isBObserveSignal(record) ? "B級觀察訊號，未列入正式統計" : "觀察訊號，未列入正式統計"]))
+    };
+  }
   const createdAtBarTime = Number(record.createdAtBarTime);
   const bars = record.trackingPolicy === "next_bar" && Number.isFinite(createdAtBarTime)
     ? klines15m.filter((item) => Number(item.time) > createdAtBarTime)
@@ -973,22 +1035,21 @@ function resolveSignalRecord(record, klines15m) {
     const barsHeld = index + 1;
     const hitStop = record.direction === "long" ? bar.low <= record.stop : bar.high >= record.stop;
     if (hitStop) return finish("SL_HIT", bar, barsHeld);
+    const hitTp1 = targetHit(record, bar, record.tp1);
 
     state = {
       ...state,
       barsHeld,
-      tp1Hit: state.tp1Hit || targetHit(record, bar, record.tp1),
+      tp1Hit: state.tp1Hit || hitTp1,
       tp2Hit: state.tp2Hit || targetHit(record, bar, record.tp2),
       tp3Hit: state.tp3Hit || targetHit(record, bar, record.tp3)
     };
     const reachedR = favorableR(record, bar);
     if (Number.isFinite(reachedR)) state.maxReachedR = Math.max(Number(state.maxReachedR) || 0, reachedR);
-    if (state.tp3Hit) return finish("TP3_HIT", bar, barsHeld);
+    if (hitTp1) return finish("TP1_HIT", bar, barsHeld);
   }
   if (bars.length >= SIGNAL_EXPIRY_BARS) {
     const lastBar = bars.at(-1);
-    if (state.tp2Hit) return finish("TP2_HIT", lastBar, bars.length);
-    if (state.tp1Hit) return finish("TP1_HIT", lastBar, bars.length);
     return finish("EXPIRED", lastBar, bars.length);
   }
   return { ...state, barsHeld: bars.length };
@@ -1002,7 +1063,22 @@ function updateOpenSignalRecords(records, symbol, klines15m) {
 
 function recordSignalIfEligible(records, analysis) {
   if (!isValidBacktestSignal(analysis) || !hasValidTradePlan(analysis)) return records;
+  const signalIsTp1TooClose = isTp1TooClose(analysis.entryZone, analysis.tp1);
+  const signalIsBObserve = isBObserveSignal(analysis);
+  const filteredOutcome = signalIsBObserve ? "B_OBSERVE_ONLY" : signalIsTp1TooClose ? "TP1_TOO_CLOSE" : "";
+  if (filteredOutcome) {
+    const latestBar = Array.isArray(analysis.latestKlines15m) ? analysis.latestKlines15m.at(-1) : null;
+    const createdAtBarTime = Number.isFinite(Number(latestBar?.time)) ? Number(latestBar.time) : null;
+    const matchingFiltered = records.find((record) => record.strategyVersion === STRATEGY_VERSION
+      && record.outcome === filteredOutcome
+      && record.symbol === analysis.symbol
+      && record.direction === analysis.direction
+      && record.setupType === analysis.setupType
+      && Number(record.createdAtBarTime) === createdAtBarTime);
+    if (matchingFiltered) return records;
+  }
   const matchingOpenIndex = records.findIndex((record) => (record.status === "OPEN" || record.result === "OPEN")
+    && record.strategyVersion === STRATEGY_VERSION
     && record.symbol === analysis.symbol
     && record.direction === analysis.direction
     && record.setupType === analysis.setupType);
@@ -1029,7 +1105,7 @@ function emptyBucketStats() {
 
 function addBucketResult(bucket, record) {
   bucket.total += 1;
-  if (record.outcome === "TP1_HIT" || record.outcome === "TP2_HIT" || record.outcome === "TP3_HIT") bucket.wins += 1;
+  if (record.outcome === "TP1_HIT") bucket.wins += 1;
   if (record.outcome === "SL_HIT") bucket.losses += 1;
   const denominator = bucket.wins + bucket.losses;
   bucket.winRate = denominator ? bucket.wins / denominator * 100 : null;
@@ -1048,18 +1124,55 @@ function recordFinalR(record) {
   return outcomeR(record, record.outcome);
 }
 
+function isCurrentStrategyRecord(record) {
+  return record?.strategyVersion === STRATEGY_VERSION;
+}
+
+function isFilteredSignalRecord(record) {
+  const outcome = String(record?.outcome || "").toUpperCase();
+  const status = String(record?.status || record?.result || "").toUpperCase();
+  return Boolean(record?.excludedFromStats)
+    || outcome === "TP1_TOO_CLOSE"
+    || outcome === "B_OBSERVE_ONLY"
+    || outcome === "OBSERVE_ONLY"
+    || outcome === "FILTERED"
+    || outcome === "SKIPPED"
+    || status === "FILTERED"
+    || status === "SKIPPED";
+}
+
+function isFormalSignalRecord(record) {
+  const status = String(record?.status || record?.result || "").toUpperCase();
+  const outcome = String(record?.outcome || "").toUpperCase();
+  const formalOutcome = !outcome || status === "OPEN" || outcome === "TP1_HIT" || outcome === "SL_HIT" || outcome === "EXPIRED" || outcome === "TIMEOUT";
+  return isCurrentStrategyRecord(record)
+    && isFormalSignalLevel(record?.initialSignalLevel || record?.signalLevel || record?.currentSignalLevel)
+    && formalOutcome
+    && !isFilteredSignalRecord(record);
+}
+
 function computeSignalStats(records) {
-  const closedRecords = records.filter((item) => item.status !== "OPEN");
+  const rawRecords = Array.isArray(records) ? records : [];
+  const currentRecords = rawRecords.filter(isCurrentStrategyRecord);
+  const recordsForStats = currentRecords.filter(isFormalSignalRecord);
+  const closedRecords = recordsForStats.filter((item) => item.status !== "OPEN");
   const stats = {
-    totalSignals: records.length,
+    strategyVersion: STRATEGY_VERSION,
+    backtestExitMode: BACKTEST_EXIT_MODE,
+    rawSignals: rawRecords.length,
+    currentStrategySignals: currentRecords.length,
+    filteredSignals: currentRecords.length - recordsForStats.length,
+    filteredTp1TooClose: currentRecords.filter((item) => item.outcome === "TP1_TOO_CLOSE").length,
+    filteredBObserve: currentRecords.filter((item) => item.outcome === "B_OBSERVE_ONLY").length,
+    totalSignals: recordsForStats.length,
     closedSignals: closedRecords.length,
-    openSignals: records.filter((item) => item.status === "OPEN").length,
-    tp1Hits: records.filter((item) => recordTargetReached(item, 1)).length,
-    tp2Hits: records.filter((item) => recordTargetReached(item, 2)).length,
-    tp3Hits: records.filter((item) => recordTargetReached(item, 3)).length,
-    slHits: records.filter((item) => item.outcome === "SL_HIT").length,
-    expired: records.filter((item) => item.outcome === "EXPIRED").length,
-    ambiguous: records.filter((item) => item.outcome === "AMBIGUOUS").length,
+    openSignals: recordsForStats.filter((item) => item.status === "OPEN").length,
+    tp1Hits: recordsForStats.filter((item) => recordTargetReached(item, 1)).length,
+    tp2Hits: recordsForStats.filter((item) => recordTargetReached(item, 2)).length,
+    tp3Hits: recordsForStats.filter((item) => recordTargetReached(item, 3)).length,
+    slHits: recordsForStats.filter((item) => item.outcome === "SL_HIT").length,
+    expired: recordsForStats.filter((item) => item.outcome === "EXPIRED" || item.outcome === "TIMEOUT").length,
+    ambiguous: recordsForStats.filter((item) => item.outcome === "AMBIGUOUS").length,
     tp3HitRate: null,
     averageMaxR: null,
     totalPnlR: 0,
@@ -1071,10 +1184,10 @@ function computeSignalStats(records) {
     averageBarsHeld: null,
     maxConsecutiveSL: 0
   };
-  const wins = closedRecords.filter((item) => item.outcome === "TP1_HIT" || item.outcome === "TP2_HIT" || item.outcome === "TP3_HIT").length;
+  const wins = closedRecords.filter((item) => item.outcome === "TP1_HIT").length;
   const losses = stats.slHits;
   const expired = stats.expired;
-  stats.totalPnlR = records.reduce((total, record) => {
+  stats.totalPnlR = recordsForStats.reduce((total, record) => {
     const finalR = recordFinalR(record);
     return Number.isFinite(finalR) ? total + finalR : total;
   }, 0);
@@ -1084,9 +1197,9 @@ function computeSignalStats(records) {
   const resolved = closedRecords;
   const barsHeld = resolved.map((item) => Number(item.barsHeld)).filter(Number.isFinite);
   stats.averageBarsHeld = barsHeld.length ? average(barsHeld) : null;
-  const maxReachedValues = records.map((item) => Number(item.maxReachedR)).filter(Number.isFinite);
+  const maxReachedValues = recordsForStats.map((item) => Number(item.maxReachedR)).filter(Number.isFinite);
   stats.averageMaxR = maxReachedValues.length ? average(maxReachedValues) : null;
-  for (const record of records) {
+  for (const record of recordsForStats) {
     const initialLevel = record.initialSignalLevel || record.signalLevel || record.currentSignalLevel;
     if (stats.byLevel[initialLevel]) addBucketResult(stats.byLevel[initialLevel], record);
     if (stats.byDirection[record.direction]) addBucketResult(stats.byDirection[record.direction], record);
@@ -1097,7 +1210,7 @@ function computeSignalStats(records) {
     if (record.outcome === "SL_HIT") {
       streak += 1;
       stats.maxConsecutiveSL = Math.max(stats.maxConsecutiveSL, streak);
-    } else if (record.outcome === "TP1_HIT" || record.outcome === "TP2_HIT" || record.outcome === "TP3_HIT") {
+    } else if (record.outcome === "TP1_HIT") {
       streak = 0;
     }
   }
@@ -1156,12 +1269,15 @@ function telegramText(analysis) {
   const level = analysis.signalLevel || "-";
   const directionText = analysis.direction === "short" ? "空單" : analysis.direction === "long" ? "多單" : "觀察";
   const typeText = setupTypeLabel(analysis.setupType);
-  const rrTp1 = Number.isFinite(analysis.rrDisplay) ? number(analysis.rrDisplay, 1) + "R" : "-";
+  const rrTp1 = Number.isFinite(analysis.rrToTp1) ? "+" + number(analysis.rrToTp1, 1) + "R" : Number.isFinite(analysis.rrDisplay) ? "+" + number(analysis.rrDisplay, 1) + "R" : "-";
   const rrTp2 = Number.isFinite(analysis.rrStretch) ? number(analysis.rrStretch, 1) + "R" : "-";
   const rrTp3 = Number.isFinite(analysis.rrToTp3) ? number(analysis.rrToTp3, 1) + "R" : "-";
+  const tp1Distance = Number.isFinite(analysis.tp1DistancePercent)
+    ? number(analysis.tp1DistancePercent, 2) + "%"
+    : Number.isFinite(Number(analysis.entryZone)) && Number.isFinite(Number(analysis.tp1)) ? number(tp1DistancePct(analysis.entryZone, analysis.tp1), 2) + "%" : "-";
   const directionNote = analysis.provisionalDirection ? "\n方向狀態：早段方向，尚未完全確認" : "";
   const scoreText = `等級：${level}\n總分：${analysis.totalScore ?? "-"} / 100\n市場：${analysis.marketScore ?? "-"} / 40\n動能：${analysis.momentumScore ?? "-"} / 30\n風報：${analysis.rrScore ?? "-"} / 30`;
-  const priceBlock = `現價：${priceNumber(analysis.price)}\n進場：${analysis.entryZone}\n止損：${Number.isFinite(analysis.stop) ? priceNumber(analysis.stop) : "-"}\n止盈1：${Number.isFinite(analysis.tp1) ? priceNumber(analysis.tp1) : "-"}\n止盈2：${Number.isFinite(analysis.tp2) ? priceNumber(analysis.tp2) : "-"}\n止盈3：${Number.isFinite(analysis.tp3) ? priceNumber(analysis.tp3) : "-"}`;
+  const priceBlock = `現價：${priceNumber(analysis.price)}\n進場：${analysis.entryZone}\n止損：${Number.isFinite(analysis.stop) ? priceNumber(analysis.stop) : "-"}\n主要止盈：${Number.isFinite(analysis.tp1) ? priceNumber(analysis.tp1) : "-"}\n參考TP2：${Number.isFinite(analysis.tp2) ? priceNumber(analysis.tp2) : "-"}\n參考TP3：${Number.isFinite(analysis.tp3) ? priceNumber(analysis.tp3) : "-"}`;
 
   if (level === "B") {
     const earlyBreakoutNote = analysis.setupType === "earlyBreakout"
@@ -1176,9 +1292,12 @@ ${directionNote}
 ${priceBlock}
 
 風報：
-TP1：${rrTp1}
-TP2：${rrTp2}
-TP3：${rrTp3}
+TP1 R倍數：${rrTp1}
+TP1距離進場：${tp1Distance}
+參考TP2：${rrTp2}
+參考TP3：${rrTp3}
+
+目前策略以 TP1 為正式出場目標，TP2 / TP3 僅供參考。
 
 分數：
 ${scoreText}
@@ -1199,9 +1318,12 @@ ${directionNote}
 ${priceBlock}
 
 風報：
-TP1：${rrTp1}
-TP2：${rrTp2}
-TP3：${rrTp3}
+TP1 R倍數：${rrTp1}
+TP1距離進場：${tp1Distance}
+參考TP2：${rrTp2}
+參考TP3：${rrTp3}
+
+目前策略以 TP1 為正式出場目標，TP2 / TP3 僅供參考。
 
 分數：
 ${scoreText}

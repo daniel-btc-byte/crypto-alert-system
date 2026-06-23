@@ -17,6 +17,7 @@ globalThis.signalIndexTestHooks = {
   rebuildSignalStats,
   recordSignalSnapshot,
   resolveSignalRecord,
+  shouldNotify,
   shouldPersistSignalRecordUpdate,
   scoreAdvancedAnalysisV2,
   updateOpenSignalRecords,
@@ -45,6 +46,7 @@ const {
   rebuildSignalStats,
   recordSignalSnapshot,
   resolveSignalRecord,
+  shouldNotify,
   shouldPersistSignalRecordUpdate,
   scoreAdvancedAnalysisV2,
   updateOpenSignalRecords,
@@ -57,6 +59,8 @@ function signalRecord(index) {
     id: `BTC-USDT:long:A:pullback:${createdAt}`,
     createdAt,
     resolvedAt: createdAt + 1,
+    strategyVersion: "tp1-effective-v1",
+    backtestExitMode: "TP1_EFFECTIVE",
     symbol: "BTC-USDT",
     direction: "long",
     signalLevel: "A",
@@ -72,6 +76,13 @@ function signalRecord(index) {
 
 function statsCache(totalSignals) {
   return {
+    strategyVersion: "tp1-effective-v1",
+    backtestExitMode: "TP1_EFFECTIVE",
+    rawSignals: totalSignals,
+    currentStrategySignals: totalSignals,
+    filteredSignals: 0,
+    filteredTp1TooClose: 0,
+    filteredBObserve: 0,
     totalSignals,
     closedSignals: totalSignals,
     openSignals: 0,
@@ -155,12 +166,12 @@ function assertNear(actual, expected, epsilon = 1e-9) {
 function openRecord() {
   const record = {
     ...signalRecord(999),
-    id: "BTC-USDT:long:B:pullback:1750000000999",
-    signalLevel: "B",
-    initialSignalLevel: "B",
-    currentSignalLevel: "B",
-    totalScore: 72,
-    lastSeenScore: 72,
+    id: "BTC-USDT:long:A:pullback:1750000000999",
+    signalLevel: "A",
+    initialSignalLevel: "A",
+    currentSignalLevel: "A",
+    totalScore: 84,
+    lastSeenScore: 84,
     setupType: "pullback",
     status: "OPEN",
     outcome: null,
@@ -377,13 +388,13 @@ test("OPEN record upgrade keeps initial level and original trade plan unchanged"
   const result = await recordSignalIfEligible({ SIGNAL_KV: kv }, upgradeAnalysis());
   const saved = JSON.parse(kv.values.get(`signal:${original.id}`));
 
-  assert.equal(result.initialSignalLevel, "B");
+  assert.equal(result.initialSignalLevel, "A");
   assert.equal(result.currentSignalLevel, "S");
-  assert.equal(result.signalLevel, "B");
+  assert.equal(result.signalLevel, "A");
   assert.equal(result.lastSeenScore, 94);
-  assert.equal(saved.initialSignalLevel, "B");
+  assert.equal(saved.initialSignalLevel, "A");
   assert.equal(saved.currentSignalLevel, "S");
-  assert.equal(saved.signalLevel, "B");
+  assert.equal(saved.signalLevel, "A");
   assert.equal(saved.entry, original.entry);
   assert.equal(saved.stop, original.stop);
   assert.equal(saved.tp1, original.tp1);
@@ -402,6 +413,75 @@ test("recordSignalIfEligible can defer stats rebuild", async () => {
   assert.equal(kv.calls.put.filter((key) => key.startsWith("signal:BTC-USDT")).length, 1);
   assert.equal(kv.calls.put.includes("signal:index"), true);
   assert.equal(kv.calls.put.includes("signal:index:version"), true);
+});
+
+test("TP1 too close is filtered from formal stats and Telegram", async () => {
+  const kv = createKv({ records: [], stats: statsCache(0) });
+  const analysis = {
+    ...upgradeAnalysis(),
+    entryZone: 100,
+    stop: 98,
+    tp1: 100.4,
+    tp2: 104,
+    tp3: 105,
+    tp1TooClose: true,
+    canNotify: false,
+    notifyBlockedReason: "TP1 distance too close"
+  };
+
+  const record = await recordSignalIfEligible({ SIGNAL_KV: kv }, analysis, { rebuildStats: false });
+  const saved = JSON.parse(kv.values.get(`signal:${record.id}`));
+  const stats = computeSignalStats([saved]);
+  const decision = await shouldNotify(analysis, {});
+
+  assert.equal(saved.strategyVersion, "tp1-effective-v1");
+  assert.equal(saved.backtestExitMode, "TP1_EFFECTIVE");
+  assert.equal(saved.status, "FILTERED");
+  assert.equal(saved.outcome, "TP1_TOO_CLOSE");
+  assert.equal(saved.excludedFromStats, true);
+  assert.equal(stats.totalSignals, 0);
+  assert.equal(stats.filteredTp1TooClose, 1);
+  assert.equal(stats.totalPnlR, 0);
+  assert.equal(decision.notify, false);
+  assert.equal(decision.reason, "TP1_TOO_CLOSE");
+});
+
+test("B level signal is observe-only and does not affect formal stats or Telegram", async () => {
+  const kv = createKv({ records: [], stats: statsCache(0) });
+  const analysis = {
+    ...upgradeAnalysis(),
+    signalLevel: "B",
+    totalScore: 76,
+    rrDisplay: 1.5,
+    rrStretch: 2,
+    canNotify: false,
+    notifyBlockedReason: "B_OBSERVE_ONLY"
+  };
+
+  const record = await recordSignalIfEligible({ SIGNAL_KV: kv }, analysis, { rebuildStats: false });
+  const saved = JSON.parse(kv.values.get(`signal:${record.id}`));
+  const formalWinner = {
+    ...signalRecord(880),
+    signalLevel: "A",
+    initialSignalLevel: "A",
+    currentSignalLevel: "A",
+    status: "CLOSED",
+    outcome: "TP1_HIT",
+    finalR: 1.5
+  };
+  const stats = computeSignalStats([formalWinner, saved]);
+  const decision = await shouldNotify(analysis, {});
+
+  assert.equal(saved.status, "FILTERED");
+  assert.equal(saved.outcome, "B_OBSERVE_ONLY");
+  assert.equal(saved.excludedFromStats, true);
+  assert.equal(stats.totalSignals, 1);
+  assert.equal(stats.filteredBObserve, 1);
+  assert.equal(stats.filteredSignals, 1);
+  assert.equal(stats.totalPnlR, 1.5);
+  assert.equal(stats.overallWinRate, 100);
+  assert.equal(decision.notify, false);
+  assert.equal(decision.reason, "B_OBSERVE_ONLY");
 });
 
 test("recordSignalIfEligible defers stats rebuild on OPEN upgrade", async () => {
@@ -441,8 +521,8 @@ test("byLevel stats bucket uses initialSignalLevel instead of current upgrade le
   };
   const stats = computeSignalStats([upgraded]);
 
-  assert.equal(stats.byLevel.B.total, 1);
-  assert.equal(stats.byLevel.B.wins, 1);
+  assert.equal(stats.byLevel.A.total, 1);
+  assert.equal(stats.byLevel.A.wins, 1);
   assert.equal(stats.byLevel.S.total, 0);
   assert.equal(stats.overallWinRate, 100);
   assert.equal(stats.overallWinRateIncludingExpired, 100);
@@ -497,7 +577,7 @@ test("TP3 R multiple is configurable", () => {
   assertNear((plan.tp3 - plan.entry) / plan.risk, 3);
 });
 
-test("backtest keeps tracking after TP1 and TP2 and closes as TP3_HIT", () => {
+test("backtest closes immediately when effective TP1 is hit", () => {
   const record = openRecord();
   const result = resolveSignalRecord(record, [
     { time: record.createdAtBarTime, high: 100.5, low: 99.5, close: 100 },
@@ -507,12 +587,12 @@ test("backtest keeps tracking after TP1 and TP2 and closes as TP3_HIT", () => {
   ]);
 
   assert.equal(result.status, "CLOSED");
-  assert.equal(result.outcome, "TP3_HIT");
+  assert.equal(result.outcome, "TP1_HIT");
   assert.equal(result.tp1Hit, true);
-  assert.equal(result.tp2Hit, true);
-  assert.equal(result.tp3Hit, true);
-  assertNear(result.maxReachedR, 2.55);
-  assert.equal(result.finalR, 2.5);
+  assert.equal(result.tp2Hit, false);
+  assert.equal(result.tp3Hit, false);
+  assertNear(result.maxReachedR, 1.6);
+  assert.equal(result.finalR, 1.5);
 });
 
 test("backtest counts stop first and does not count same-bar TP", () => {
@@ -550,17 +630,17 @@ test("open signal writes KV only when TP or closing event changes", async () => 
     {
       name: "TP1",
       bars: (record) => [{ time: record.createdAtBarTime + 1, high: 103.1, low: 100, close: 102 }],
-      expected: { status: "OPEN", tp1Hit: true }
+      expected: { status: "CLOSED", outcome: "TP1_HIT", tp1Hit: true, finalR: 1.5 }
     },
     {
       name: "TP2",
       bars: (record) => [{ time: record.createdAtBarTime + 1, high: 104.1, low: 100, close: 103 }],
-      expected: { status: "OPEN", tp1Hit: true, tp2Hit: true }
+      expected: { status: "CLOSED", outcome: "TP1_HIT", tp1Hit: true, tp2Hit: true, finalR: 1.5 }
     },
     {
       name: "TP3",
       bars: (record) => [{ time: record.createdAtBarTime + 1, high: 105.1, low: 100, close: 105 }],
-      expected: { status: "CLOSED", outcome: "TP3_HIT", tp1Hit: true, tp2Hit: true, tp3Hit: true }
+      expected: { status: "CLOSED", outcome: "TP1_HIT", tp1Hit: true, tp2Hit: true, tp3Hit: true, finalR: 1.5 }
     },
     {
       name: "SL",
@@ -593,16 +673,16 @@ test("open signal writes KV only when TP or closing event changes", async () => 
   }
 });
 
-test("stats include TP3 reached rate, average max R, and final R total", () => {
-  const tp3 = {
+test("stats use current strategy formal TP1-effective records only", () => {
+  const tp1 = {
     ...signalRecord(800),
     status: "CLOSED",
-    outcome: "TP3_HIT",
+    outcome: "TP1_HIT",
     tp1Hit: true,
-    tp2Hit: true,
-    tp3Hit: true,
-    maxReachedR: 2.6,
-    finalR: 2.5
+    tp2Hit: false,
+    tp3Hit: false,
+    maxReachedR: 1.6,
+    finalR: 1.5
   };
   const stopped = {
     ...signalRecord(801),
@@ -614,14 +694,25 @@ test("stats include TP3 reached rate, average max R, and final R total", () => {
     maxReachedR: 0.4,
     finalR: -1
   };
-  const stats = computeSignalStats([tp3, stopped]);
+  const oldTp3 = {
+    ...signalRecord(802),
+    strategyVersion: undefined,
+    outcome: "TP3_HIT",
+    tp1Hit: true,
+    tp2Hit: true,
+    tp3Hit: true,
+    finalR: 2.5
+  };
+  const stats = computeSignalStats([tp1, stopped, oldTp3]);
 
   assert.equal(stats.tp1Hits, 1);
-  assert.equal(stats.tp2Hits, 1);
-  assert.equal(stats.tp3Hits, 1);
-  assert.equal(stats.tp3HitRate, 50);
-  assertNear(stats.averageMaxR, 1.5);
-  assertNear(stats.totalPnlR, 1.5);
+  assert.equal(stats.tp2Hits, 0);
+  assert.equal(stats.tp3Hits, 0);
+  assert.equal(stats.tp3HitRate, 0);
+  assertNear(stats.averageMaxR, 1);
+  assertNear(stats.totalPnlR, 0.5);
+  assert.equal(stats.rawSignals, 3);
+  assert.equal(stats.totalSignals, 2);
 });
 
 test("SOL earlyBreakout produces at least a B long in aggressive mode", () => {

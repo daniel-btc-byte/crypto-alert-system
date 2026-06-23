@@ -1842,7 +1842,7 @@
       <div class="decision-summary-grid" aria-label="快速決策卡">
         <div class="decision-summary-card"><span>進場價</span><strong id="quickEntry">-</strong></div>
         <div class="decision-summary-card"><span>止損</span><strong id="quickStop">-</strong></div>
-        <div class="decision-summary-card"><span>TP1 / TP2 / TP3</span><strong id="quickTargets">-</strong></div>
+        <div class="decision-summary-card"><span>主要止盈 / 參考TP</span><strong id="quickTargets">-</strong></div>
         <div class="decision-summary-card"><span>RR</span><strong id="quickRr">-</strong></div>
         <div class="decision-summary-card"><span>訊號等級</span><strong id="quickSignalLevel">-</strong></div>
         <div class="decision-summary-card"><span>主要原因</span><strong id="quickReason">-</strong></div>
@@ -1926,7 +1926,7 @@
         <section class="signal-section">
           <div class="signal-section-title">出場品質區</div>
           <div class="signal-kpi-grid">
-            <div class="signal-stat-card success"><span>TP1 / TP2 / TP3 達標</span><strong id="signalOutcomes">-</strong></div>
+            <div class="signal-stat-card success"><span>正式TP1 / 參考TP 達標</span><strong id="signalOutcomes">-</strong></div>
             <div class="signal-stat-card danger"><span>止損</span><strong id="signalStopLossCount">-</strong></div>
             <div class="signal-stat-card warning"><span>逾時</span><strong id="signalExpiredCount">-</strong></div>
             <div class="signal-stat-card warning"><span>本頁有賺變虧</span><strong id="signalMissedProfitCount">-</strong></div>
@@ -1938,7 +1938,7 @@
             <div class="signal-stat-card"><span>S+ / S / A / B 勝率</span><strong id="signalGradeRates">-</strong></div>
             <div class="signal-stat-card"><span>多單 / 空單勝率</span><strong id="signalSideRates">-</strong></div>
             <div class="signal-stat-card"><span>回踩單 / 突破單 / 早段突破</span><strong id="signalSetupRates">-</strong></div>
-            <div class="signal-stat-card success"><span>TP3 達標率</span><strong id="signalTp3Rate">-</strong></div>
+            <div class="signal-stat-card success"><span>參考TP3達標率</span><strong id="signalTp3Rate">-</strong></div>
           </div>
         </section>
       </div>
@@ -2105,6 +2105,9 @@
     const technicalDetailsCollapsedKey = "technicalDetailsCollapsed";
     const slippageReplayCollapsedKey = "slippageReplayCollapsed";
     const autoUpdateIntervalSeconds = 5;
+    const STRATEGY_VERSION = "tp1-effective-v1";
+    const BACKTEST_EXIT_MODE = "TP1_EFFECTIVE";
+    const MIN_TP1_DISTANCE_PCT = 0.5;
     let autoUpdateEnabled = true;
     let autoUpdateCountdown = autoUpdateIntervalSeconds;
     let autoUpdateTimer = null;
@@ -2433,6 +2436,27 @@
         minimumFractionDigits: digits,
         maximumFractionDigits: digits
       });
+    }
+
+    function tp1DistancePct(entry, tp1) {
+      const entryPrice = Number(entry);
+      const targetPrice = Number(tp1);
+      if (!Number.isFinite(entryPrice) || !Number.isFinite(targetPrice) || entryPrice <= 0) return null;
+      return Math.abs(targetPrice - entryPrice) / entryPrice * 100;
+    }
+
+    function isTp1TooClose(entry, tp1) {
+      const distancePct = tp1DistancePct(entry, tp1);
+      return Number.isFinite(distancePct) && distancePct < MIN_TP1_DISTANCE_PCT;
+    }
+
+    function isFormalSignalLevel(level) {
+      return ["S+", "S", "A"].includes(String(level || "").toUpperCase());
+    }
+
+    function isBObserveSignal(data) {
+      const level = String(data?.signalLevel || data?.currentSignalLevel || "").toUpperCase();
+      return level === "B";
     }
 
     function formatSymbolPrice(value, symbol = currentSymbol()) {
@@ -2850,7 +2874,13 @@
         TP1_HIT: "止盈1",
         TP2_HIT: "止盈2",
         TP3_HIT: "止盈3",
+        TP1_TOO_CLOSE: "TP1太近",
+        B_OBSERVE_ONLY: "B級觀察",
+        OBSERVE_ONLY: "觀察",
+        FILTERED: "已過濾",
+        SKIPPED: "略過",
         EXPIRED: "逾時",
+        TIMEOUT: "逾時",
         AMBIGUOUS: "順序不明"
       };
       return labels[normalized] || value || "-";
@@ -2876,7 +2906,10 @@
         [/RSI overheated/gi, "RSI 過熱"],
         [/RSI oversold/gi, "RSI 過度超賣"],
         [/ATR extremely high/gi, "ATR 極端高波動"],
-        [/stop too wide/gi, "止損距離過大"]
+        [/stop too wide/gi, "止損距離過大"],
+        [/TP1 distance too close/gi, "TP1距離進場太近"],
+        [/TP1_TOO_CLOSE/gi, "TP1距離進場太近"],
+        [/B_OBSERVE_ONLY/gi, "B級觀察訊號"]
       ];
       replacements.forEach(([pattern, label]) => {
         text = text.replace(pattern, label);
@@ -2908,7 +2941,7 @@
     function rText(value) {
       if (value === null || value === undefined || value === "") return "-";
       const numeric = Number(value);
-      return Number.isFinite(numeric) ? `${number(numeric, 2)} R` : "-";
+      return Number.isFinite(numeric) ? `${numeric > 0 ? "+" : ""}${number(numeric, 2)} R` : "-";
     }
 
     function rClass(value) {
@@ -2944,8 +2977,9 @@
       const status = String(record?.status || record?.result || "").toUpperCase();
       const outcome = String(record?.outcome || "").toUpperCase();
       if (status === "OPEN" || record?.result === "OPEN") return "open";
+      if (outcome === "TP1_TOO_CLOSE" || outcome === "B_OBSERVE_ONLY" || outcome === "OBSERVE_ONLY" || outcome === "FILTERED" || outcome === "SKIPPED" || status === "FILTERED" || status === "SKIPPED") return "filtered";
       if (outcome === "SL_HIT") return "sl";
-      if (outcome === "EXPIRED") return "expired";
+      if (outcome === "EXPIRED" || outcome === "TIMEOUT") return "expired";
       if (outcome === "TP1_HIT" || outcome === "TP2_HIT" || outcome === "TP3_HIT") return "tp";
       return "neutral";
     }
@@ -2957,6 +2991,11 @@
       const label = outcome === "TP3_HIT" ? "TP3"
         : outcome === "TP2_HIT" ? "TP2"
         : outcome === "TP1_HIT" ? "TP1"
+        : outcome === "TP1_TOO_CLOSE" ? "TP1太近"
+        : outcome === "B_OBSERVE_ONLY" ? "B觀察"
+        : outcome === "OBSERVE_ONLY" ? "觀察"
+        : outcome === "FILTERED" ? "已過濾"
+        : outcome === "SKIPPED" ? "略過"
         : type === "sl" ? "止損"
         : type === "expired" ? "逾時"
         : type === "open" ? "進行中"
@@ -2970,6 +3009,11 @@
       const label = outcome === "TP3_HIT" ? "TP3"
         : outcome === "TP2_HIT" ? "TP2"
         : outcome === "TP1_HIT" ? "TP1"
+        : outcome === "TP1_TOO_CLOSE" ? "近"
+        : outcome === "B_OBSERVE_ONLY" ? "B"
+        : outcome === "OBSERVE_ONLY" ? "觀"
+        : outcome === "FILTERED" ? "濾"
+        : outcome === "SKIPPED" ? "略"
         : type === "sl" ? "SL"
         : type === "expired" ? "逾"
         : type === "open" ? "中"
@@ -3017,14 +3061,18 @@
         <div class="record-detail-panel">
           <div><span>進場價</span>${priceNumber(Number(record.entry))}</div>
           <div><span>止損</span>${priceNumber(Number(record.stop))}</div>
-          <div><span>TP1</span>${priceNumber(Number(record.tp1))}</div>
-          <div><span>TP2</span>${priceNumber(Number(record.tp2))}</div>
-          <div><span>TP3</span>${priceNumber(Number(record.tp3))}</div>
-          <div><span>TP1 達標</span>${targetIcon(recordTargetReached(record, 1))}</div>
-          <div><span>TP2 達標</span>${targetIcon(recordTargetReached(record, 2))}</div>
-          <div><span>TP3 達標</span>${targetIcon(recordTargetReached(record, 3))}</div>
+          <div><span>主要止盈TP1</span>${priceNumber(Number(record.tp1))}</div>
+          <div><span>參考TP2</span>${priceNumber(Number(record.tp2))}</div>
+          <div><span>參考TP3</span>${priceNumber(Number(record.tp3))}</div>
+          <div><span>正式TP1達標</span>${targetIcon(recordTargetReached(record, 1))}</div>
+          <div><span>參考TP2達標</span>${targetIcon(recordTargetReached(record, 2))}</div>
+          <div><span>參考TP3達標</span>${targetIcon(recordTargetReached(record, 3))}</div>
           <div><span>原始 finalR</span>${record.finalR ?? "-"}</div>
           <div><span>原始 maxReachedR</span>${record.maxReachedR ?? "-"}</div>
+          <div><span>策略版本</span>${record.strategyVersion || "-"}</div>
+          <div><span>結案模式</span>${record.backtestExitMode || "-"}</div>
+          <div><span>TP1 距離</span>${Number.isFinite(Number(record.tp1DistancePercent)) ? number(Number(record.tp1DistancePercent), 2) + "%" : "-"}</div>
+          <div><span>過濾原因</span>${record.outcome === "TP1_TOO_CLOSE" ? "TP1距離進場太近，未列入正式統計" : record.outcome === "B_OBSERVE_ONLY" ? "B級觀察訊號，未列入正式統計" : record.excludeReason || "-"}</div>
         </div>
       `;
     }
@@ -3297,7 +3345,7 @@
       document.querySelector("#signalSetupRates").innerHTML = `回踩單 ${bucketRate(stats.bySetupType?.pullback)}<br>突破單 ${bucketRate(stats.bySetupType?.breakout)}<br>早段突破 ${bucketRate(stats.bySetupType?.earlyBreakout)}`;
       document.querySelector("#signalOpenCount").textContent = stats.openSignals ?? 0;
       document.querySelector("#signalTotalPnl").textContent = Number.isFinite(Number(stats.totalPnlR)) ? `${number(Number(stats.totalPnlR), 2)} R` : "-";
-      document.querySelector("#signalOutcomes").innerHTML = `TP1 ${stats.tp1Hits ?? 0}<br>TP2 ${stats.tp2Hits ?? 0}<br>TP3 ${stats.tp3Hits ?? 0}`;
+      document.querySelector("#signalOutcomes").innerHTML = `正式TP1 ${stats.tp1Hits ?? 0}<br>參考TP2 ${stats.tp2Hits ?? 0}<br>參考TP3 ${stats.tp3Hits ?? 0}<br>過濾 ${stats.filteredSignals ?? 0}<br>TP1太近 ${stats.filteredTp1TooClose ?? 0}<br>B級觀察 ${stats.filteredBObserve ?? 0}`;
       document.querySelector("#signalStopLossCount").textContent = stats.slHits ?? 0;
       document.querySelector("#signalExpiredCount").textContent = stats.expired ?? 0;
       document.querySelector("#signalMissedProfitCount").textContent = recentSignals.filter(isMissedProfit).length;
@@ -3800,6 +3848,8 @@
         else if (gradingRr < 1.5) signalLevel = capSignalLevel(signalLevel, "C");
         else if (gradingRr < 1.8) signalLevel = capSignalLevel(signalLevel, "B");
       }
+      const tp1DistancePercent = tp1DistancePct(planMetrics.entry ?? basic.price, planMetrics.tp1);
+      const tp1TooClose = isTp1TooClose(planMetrics.entry ?? basic.price, planMetrics.tp1);
       const warnings = [];
       if (ma30Deviation.overLimit) warnings.push(`MA30 偏離過高 ${number(ma30Deviation.percent, 2)}%`);
       if (chaseRisk && !["breakout", "earlyBreakout"].includes(setup.setupType)) warnings.push("追價風險，等待更好位置");
@@ -3808,9 +3858,15 @@
       if (volumeRatio < 0.8 && !setup.earlyBreakoutValid) warnings.push(`量能偏弱 ${number(volumeRatio, 2)}x`);
       if (setup.earlyBreakoutValid && setup.formingVolumeOnly) warnings.push(`未收線量能預警 ${number(earlyBreakoutVolumeRatio, 2)}x`);
       if (provisionalDirection) warnings.push("早段方向，尚未完全確認");
+      if (tp1TooClose) warnings.push("TP1距離進場太近，未列入正式統計");
+      const bObserveOnly = signalLevel === "B";
+      if (bObserveOnly) warnings.push("B級觀察訊號，未列入正式統計");
       warnings.push(...penaltyWarnings);
-      const canNotify = ["S+", "S", "A"].includes(signalLevel) || (signalLevel === "B" && totalScore >= 70 && gradingRr >= 1.2);
-      const finalSignal = signalLevel === "D" ? "不建議" : `${signalLevel}級${direction === "long" ? "做多" : "做空"}`;
+      const notifyEligible = isFormalSignalLevel(signalLevel);
+      const canNotify = notifyEligible && !tp1TooClose;
+      const finalSignal = bObserveOnly
+        ? "觀察：B級觀察訊號，暫不列入正式訊號"
+        : tp1TooClose ? "觀察：TP1距離進場太近，暫不列入正式訊號" : signalLevel === "D" ? "不建議" : `${signalLevel}級${direction === "long" ? "做多" : "做空"}`;
       const macdResult = { ...macd, label: `${macd.status} + ${macd.histogramStatus}` };
       return {
         ...analysis,
@@ -3834,6 +3890,11 @@
         averageVolume: analysis.averageVolume,
         currentFormingVolumeRatio,
         gradingRr,
+        strategyVersion: STRATEGY_VERSION,
+        backtestExitMode: BACKTEST_EXIT_MODE,
+        tp1DistancePercent,
+        tp1TooClose,
+        bObserveOnly,
         marketGrade: signalLevel,
         entryGrade: signalLevel,
         majorTrend: direction === "long" ? "偏多" : direction === "short" ? "偏空" : "盤整",
@@ -3849,8 +3910,10 @@
         signalLevel,
         signalStage: signalLevel === "D" ? "不交易" : "確認訊號",
         telegramWillNotify: canNotify,
-        noTelegramReason: canNotify ? "" : `${signalLevel}級不推播`,
-        nonTradeReasons: hardBlockReasons.length ? hardBlockReasons : signalLevel === "D" ? ["score below 60"] : [],
+        noTelegramReason: canNotify ? "" : bObserveOnly ? "B級觀察訊號" : tp1TooClose ? "TP1距離進場太近" : `${signalLevel}級不推播`,
+        nonTradeReasons: tp1TooClose || bObserveOnly
+          ? [...(hardBlockReasons.length ? hardBlockReasons : signalLevel === "D" ? ["score below 60"] : []), ...(bObserveOnly ? ["B_OBSERVE_ONLY"] : []), ...(tp1TooClose ? ["TP1_TOO_CLOSE"] : [])]
+          : hardBlockReasons.length ? hardBlockReasons : signalLevel === "D" ? ["score below 60"] : [],
         hardBlockReasons,
         hardBlocks: hardBlockReasons,
         hardBlocked,
@@ -3871,9 +3934,9 @@
           `進場型態：${formatSetupTypeLabel(setup.setupType)}`,
           `進場：${priceNumber(planMetrics.entry ?? basic.price)}`,
           `止損：${Number.isFinite(planMetrics.stop) ? priceNumber(planMetrics.stop) : "-"}`,
-          `止盈1：${Number.isFinite(planMetrics.tp1) ? priceNumber(planMetrics.tp1) : "-"}`,
-          `止盈2：${Number.isFinite(planMetrics.tp2) ? priceNumber(planMetrics.tp2) : "-"}`,
-          `止盈3：${Number.isFinite(planMetrics.tp3) ? priceNumber(planMetrics.tp3) : "-"}`,
+          `主要止盈TP1：${Number.isFinite(planMetrics.tp1) ? priceNumber(planMetrics.tp1) : "-"}`,
+          `參考TP2：${Number.isFinite(planMetrics.tp2) ? priceNumber(planMetrics.tp2) : "-"}`,
+          `參考TP3：${Number.isFinite(planMetrics.tp3) ? priceNumber(planMetrics.tp3) : "-"}`,
           `風報1：${Number.isFinite(planMetrics.rrDisplay) ? number(planMetrics.rrDisplay, 1) + "R" : "-"}`,
           `風報2：${Number.isFinite(planMetrics.rrStretch) ? number(planMetrics.rrStretch, 1) + "R" : "-"}`,
           `風報3：${Number.isFinite(planMetrics.rrToTp3) ? number(planMetrics.rrToTp3, 1) + "R" : "-"}`
@@ -3975,6 +4038,8 @@
 
     function isActionableSignal(analysis) {
       if (!analysis) return false;
+      if (analysis.tp1TooClose) return false;
+      if (!isFormalSignalLevel(analysis.signalLevel || analysis.entryGrade || analysis.marketGrade)) return false;
       const finalSignal = String(analysis.finalSignal || analysis.recommendation || "").trim();
       if (/不建議|等待|未確認|方向不明/.test(finalSignal)) return false;
       const level = String(analysis.signalLevel || analysis.entryGrade || analysis.marketGrade || "").toUpperCase();
@@ -4051,8 +4116,8 @@
       const values = {
         quickEntry: entry !== null ? formatSymbolPrice(entry, symbol) : actionableSignal && data.entryZone ? data.entryZone : "-",
         quickStop: stopLoss !== null ? formatSymbolPrice(stopLoss, symbol) : "-",
-        quickTargets: `${tp1 !== null ? formatSymbolPrice(tp1, symbol) : "-"} / ${tp2 !== null ? formatSymbolPrice(tp2, symbol) : "-"} / ${tp3 !== null ? formatSymbolPrice(tp3, symbol) : "-"}`,
-        quickRr: actionableSignal ? `${rr1 !== null ? number(rr1, 1) + "R" : "-"} / ${rr2 !== null ? number(rr2, 1) + "R" : "-"} / ${rr3 !== null ? number(rr3, 1) + "R" : "-"}` : "-",
+        quickTargets: `主要止盈TP1 ${tp1 !== null ? formatSymbolPrice(tp1, symbol) : "-"}｜參考TP2 ${tp2 !== null ? formatSymbolPrice(tp2, symbol) : "-"}｜參考TP3 ${tp3 !== null ? formatSymbolPrice(tp3, symbol) : "-"}`,
+        quickRr: actionableSignal ? `TP1 ${rr1 !== null ? number(rr1, 1) + "R" : "-"}｜參考TP2 ${rr2 !== null ? number(rr2, 1) + "R" : "-"}｜參考TP3 ${rr3 !== null ? number(rr3, 1) + "R" : "-"}` : "-",
         quickSignalLevel: data.signalLevel === "D" ? "不建議" : data.signalLevel || "-",
         quickReason: reasons[0] || data.finalSignal || "-",
         quickTelegram: data.telegramWillNotify ? "會推播" : `不推播${data.noTelegramReason ? "｜" + formatWarningLabel(data.noTelegramReason) : ""}`,
